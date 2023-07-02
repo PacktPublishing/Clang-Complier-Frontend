@@ -1,0 +1,29 @@
+%% -*- coding:utf-8 -*-
+%% -*- coding:utf-8 -*-
+\pagestyle{empty}
+\pagecolor{Gray}
+\color{black}
+
+\chapter*{\textbf{Part 2:\\
+    Clang tools}}
+
+\begin{flushleft}
+
+You can find some info about different clang tools here. We will start with
+linters that are based on clang-tidy, continue with some advanced code analysis
+techniques (CFG and live time analysis). The next chapter will be about
+different refactoring tools such as clang-format. The last chapter will be about
+IDE support. We are going to investigate how VSCode can be extended with
+language server provided by LLVM (clangd).
+
+\end{flushleft}
+
+\clearpage
+
+\nopagecolor
+\input ./part2/clangtidy.tex
+\input ./part2/codeanalysis.tex
+\input ./part2/refactor.tex
+\input ./part2/idesupport.tex
+
+\clearpage

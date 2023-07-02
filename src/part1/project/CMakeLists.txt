@@ -1,0 +1,14 @@
+add_clang_tool(clangbookproject
+  Project.cpp
+  )
+clang_target_link_libraries(clangbookproject
+  PRIVATE
+  LLVMSupport
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangDynamicASTMatchers
+  clangFrontend
+  clangSerialization
+  clangTooling
+  )

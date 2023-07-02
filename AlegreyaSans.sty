@@ -1,0 +1,347 @@
+\ProvidesPackage{AlegreyaSans}[%
+   2019/10/12 (Bob Tennent)  Supports AlegreyaSans fonts for all LaTeX engines. ] 
+
+\RequirePackage{ifxetex,ifluatex,textcomp}
+
+\newif\ifAlegreyaSans@otf
+\ifxetex
+  \AlegreyaSans@otftrue
+\else\ifluatex
+  \AlegreyaSans@otftrue
+\else  % [pdf]LaTeX
+  \AlegreyaSans@otffalse
+\fi\fi
+
+\newif\ifAlegreyaSans@lining \AlegreyaSans@liningtrue
+\newif\ifAlegreyaSans@tabular \AlegreyaSans@tabularfalse
+
+\newif\ifAlegreyaSans@black \AlegreyaSans@blackfalse
+\newif\ifAlegreyaSans@extrabold \AlegreyaSans@extraboldfalse
+\newif\ifAlegreyaSans@medium \AlegreyaSans@mediumfalse
+\newif\ifAlegreyaSans@thin \AlegreyaSans@thinfalse
+\newif\ifAlegreyaSans@light \AlegreyaSans@lightfalse
+
+\newcommand*{\AlegreyaSans@scale}{1}  
+\RequirePackage{xkeyval}
+\DeclareOptionX{scaled}{\renewcommand*{\AlegreyaSans@scale}{#1}}
+\DeclareOptionX{scale}{\renewcommand*{\AlegreyaSans@scale}{#1}}
+
+\DeclareOptionX{type1}{\AlegreyaSans@otffalse}
+
+\newif\ifAlegreyaSans@default \AlegreyaSans@defaultfalse
+\DeclareOptionX{sfdefault}{\AlegreyaSans@defaulttrue}
+
+\DeclareOptionX{lining}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@liningtrue
+\else
+  \AlegreyaSans@liningfalse
+\fi
+}
+\DeclareOptionX{lf}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@liningtrue
+\else
+  \AlegreyaSans@liningfalse
+\fi
+}
+\DeclareOptionX{oldstyle}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@liningfalse
+\else
+  \AlegreyaSans@liningtrue
+\fi
+}
+
+\DeclareOptionX{osf}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@liningfalse
+\else
+  \AlegreyaSans@liningtrue
+\fi
+}
+
+\DeclareOptionX{tabular}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@tabulartrue
+\else
+  \AlegreyaSans@tabularfalse
+\fi
+}
+\DeclareOptionX{tf}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@tabulartrue
+\else
+  \AlegreyaSans@tabularfalse
+\fi
+}
+\DeclareOptionX{proportional}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@tabularfalse
+\else
+  \AlegreyaSans@tabulartrue
+\fi
+}
+
+\DeclareOptionX{pf}[true]{%
+\@nameuse{if#1}%
+  \AlegreyaSans@tabularfalse
+\else
+  \AlegreyaSans@tabulartrue
+\fi
+}
+
+\DeclareOptionX{black}{\AlegreyaSans@blacktrue}
+\DeclareOptionX{extrabold}{\AlegreyaSans@extraboldtrue}
+
+\DeclareOptionX{thin}{\AlegreyaSans@thintrue}
+\DeclareOptionX{light}{\AlegreyaSans@lighttrue}
+\DeclareOptionX{medium}{\AlegreyaSans@mediumtrue}
+
+\ProcessOptionsX\relax
+
+\ifAlegreyaSans@otf
+  \ifAlegreyaSans@lining
+    \def\AlegreyaSans@figurestyle{Lining}
+  \else
+    \def\AlegreyaSans@figurestyle{OldStyle}
+  \fi
+  \ifAlegreyaSans@tabular
+    \def\AlegreyaSans@figurealign{Monospaced}
+  \else
+    \def\AlegreyaSans@figurealign{Proportional}
+  \fi
+
+  \def\AlegreyaSans@regularstyle{Regular}
+  \ifAlegreyaSans@medium
+    \def\AlegreyaSans@regularstyle{Medium}
+  \else\ifAlegreyaSans@thin
+    \def\AlegreyaSans@regularstyle{Thin}
+  \else\ifAlegreyaSans@light
+    \def\AlegreyaSans@regularstyle{Light}
+  \fi\fi\fi
+     
+  \def\AlegreyaSans@boldstyle{Bold}
+  \ifAlegreyaSans@extrabold
+    \def\AlegreyaSans@boldstyle{ExtraBold}
+  \else\ifAlegreyaSans@black
+    \def\AlegreyaSans@boldstyle{Black}
+  \fi\fi
+
+\else % type1
+
+  \ifAlegreyaSans@lining
+    \def\AlegreyaSans@figurestyle{LF} 
+  \else
+    \def\AlegreyaSans@figurestyle{OsF} 
+  \fi
+  \ifAlegreyaSans@tabular
+    \def\AlegreyaSans@figurealign{T}
+  \else
+    \def\AlegreyaSans@figurealign{}
+  \fi
+
+  \def\bfseries@sf{b}
+  \ifAlegreyaSans@extrabold
+    \def\bfseries@sf{eb}
+  \else\ifAlegreyaSans@black
+    \def\bfseries@sf{ub}
+  \fi\fi
+
+  \def\mdseries@sf{m}
+  \ifAlegreyaSans@medium
+    \def\mdseries@sf{sb}
+  \else\ifAlegreyaSans@light
+    \def\mdseries@sf{l}
+  \else\ifAlegreyaSans@thin
+    \def\mdseries@sf{el}
+  \fi\fi\fi
+
+\fi
+
+
+\ifAlegreyaSans@otf
+  \RequirePackage{fontspec}
+\else
+  \RequirePackage{fontenc,fontaxes,mweights}
+\fi
+
+\ifAlegreyaSans@otf
+  \def\AlegreyaSans@regular{Regular}
+  \ifxetex\XeTeXtracingfonts=1\fi
+  \defaultfontfeatures{
+     Ligatures = TeX ,
+     Extension = .otf ,
+     Scale     = \AlegreyaSans@scale ,
+  }
+  \setsansfont
+      [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-\AlegreyaSans@regularstyle ,
+        ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+        BoldFont       = *-\AlegreyaSans@boldstyle , 
+        BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+      ]
+      {AlegreyaSans}
+  % grab current family in case of subsequent change:
+  \let\AlegreyaSansfamily\sfdefault 
+  \def\useosf{%
+    \edef\AlegreyaSans@figurestyle{OldStyle}
+    \defaultfontfeatures{
+       Ligatures = TeX ,
+       Extension = .otf ,
+       Scale = \AlegreyaSans@scale ,
+    }
+    \setsansfont
+        [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-\AlegreyaSans@regularstyle ,
+        ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+        BoldFont       = *-\AlegreyaSans@boldstyle , 
+        BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+        ]
+        {AlegreyaSans}
+    \def\rmfamily{\AlegreyaSans@OsF}
+    \defaultfontfeatures{}
+  }
+
+
+  \newfontfamily\AlegreyaSans
+      [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-\AlegreyaSans@regularstyle ,
+        ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+        BoldFont       = *-\AlegreyaSans@boldstyle , 
+        BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+      ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansOsF
+        [ Numbers = {Proportional,OldStyle},
+          UprightFont    = *-\AlegreyaSans@regularstyle ,
+          ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+          BoldFont       = *-\AlegreyaSans@boldstyle , 
+          BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+        ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansLF
+        [ Numbers = {Proportional,Lining},
+          UprightFont    = *-\AlegreyaSans@regularstyle ,
+          ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+          BoldFont       = *-\AlegreyaSans@boldstyle , 
+          BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+        ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansTOsF
+        [ Numbers = {Monospaced,OldStyle},
+          UprightFont    = *-\AlegreyaSans@regularstyle ,
+          ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+          BoldFont       = *-\AlegreyaSans@boldstyle , 
+          BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+        ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSans@OsF  % for \useosf
+        [ Numbers = {\AlegreyaSans@figurealign, OldStyle},
+          UprightFont    = *-\AlegreyaSans@regularstyle ,
+          ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+          BoldFont       = *-\AlegreyaSans@boldstyle , 
+          BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+        ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansTLF
+        [ Numbers = {Monospaced,Lining},
+          UprightFont    = *-\AlegreyaSans@regularstyle ,
+          ItalicFont     = *-\ifx\AlegreyaSans@regularstyle\AlegreyaSans@regular Italic\else\AlegreyaSans@regularstyle Italic\fi ,
+          BoldFont       = *-\AlegreyaSans@boldstyle , 
+          BoldItalicFont = *-\AlegreyaSans@boldstyle Italic ,
+        ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansBlack
+      [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-Black ,
+        ItalicFont     = *-BlackItalic ,
+        BoldFont       = *-Black ,
+        BoldItalicFont = *-BlackItalic ,
+      ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansExtraBold
+      [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-ExtraBold ,
+        ItalicFont     = *-ExtraBoldItalic ,
+        BoldFont       = *-ExtraBold ,
+        BoldItalicFont = *-ExtraBoldItalic ,
+      ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansThin
+      [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-Thin ,
+        ItalicFont     = *-ThinItalic ,
+        BoldFont       = *-Thin ,
+        BoldItalicFont = *-ThinItalic ,
+      ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansLight
+      [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-Light ,
+        ItalicFont     = *-LightItalic ,
+        BoldFont       = *-Light ,
+        BoldItalicFont = *-LightItalic ,
+      ]
+      {AlegreyaSans}
+  \newfontfamily\AlegreyaSansMedium
+      [ Numbers = {\AlegreyaSans@figurealign,\AlegreyaSans@figurestyle},
+        UprightFont    = *-Medium ,
+        ItalicFont     = *-MediumItalic ,
+        BoldFont       = *-Medium ,
+        BoldItalicFont = *-MediumItalic ,
+      ]
+      {AlegreyaSans}
+  \def\sffamily{\AlegreyaSans}
+  \ifAlegreyaSans@default
+     \edef\familydefault{\AlegreyaSansfamily}
+  \fi
+
+  \providecommand\sufigures{\addfontfeatures{VerticalPosition=Superior}}  
+  \providecommand\infigures{\addfontfeatures{VerticalPosition=Inferior}}
+
+
+\else % type1
+
+  \def\AlegreyaSansfamily{AlegreyaSans-\AlegreyaSans@figurealign \AlegreyaSans@figurestyle}
+  \def\AlegreyaSans{\fontfamily{\AlegreyaSansfamily}\selectfont}
+  \def\AlegreyaSansLF{\fontfamily{AlegreyaSans-LF}\selectfont}
+  \def\AlegreyaSansOsF{\fontfamily{AlegreyaSans-OsF}\selectfont}
+  \def\AlegreyaSansTLF{\fontfamily{AlegreyaSans-TLF}\selectfont}
+  \def\AlegreyaSansTOsF{\fontfamily{AlegreyaSans-TOsF}\selectfont}
+  \def\AlegreyaSansThin{\fontfamily{\AlegreyaSansfamily}\fontseries{el}\selectfont}
+  \def\AlegreyaSansLight{\fontfamily{\AlegreyaSansfamily}\fontseries{l}\selectfont}
+  \def\AlegreyaSansMedium{\fontfamily{\AlegreyaSansfamily}\fontseries{sb}\selectfont}
+  \def\AlegreyaSansExtraBold{\fontfamily{\AlegreyaSansfamily}\fontseries{eb}\selectfont}
+  \def\AlegreyaSansBlack{\fontfamily{\AlegreyaSansfamily}\fontseries{ub}\selectfont}
+
+  \fa@naming@exception{figures}{{superior}{proportional}}{Sup}
+  \fa@naming@exception{figures}{{superior}{tabular}}{Sup}
+  \providecommand\sufigures{\@nomath\sufigures\fontfigurestyle{superior}\selectfont}
+
+  \fa@naming@exception{figures}{{inferior}{proportional}}{Inf}
+  \fa@naming@exception{figures}{{inferior}{tabular}}{Inf}
+  \providecommand\infigures{\@nomath\infigures\fontfigurestyle{inferior}\selectfont}
+
+  \def\sfdefault{\AlegreyaSansfamily}
+  \def\sffamily{%
+    \fontfamily{\AlegreyaSansfamily}\selectfont
+    \edef\seriesdefault{\mdseries@sf}%
+  }
+  \ifAlegreyaSans@default
+     \edef\familydefault{\sfdefault}
+     \edef\seriesdefault{\mdseries@sf}
+  \fi
+
+\fi
+
+\DeclareTextFontCommand{\textsu}{\sufigures}
+\DeclareTextFontCommand{\textin}{\infigures}
+
+% turn off defaults in case other fonts are selected:
+\ifAlegreyaSans@otf
+  \defaultfontfeatures{}
+\fi
+
+\endinput
+

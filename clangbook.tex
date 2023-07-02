@@ -1,0 +1,202 @@
+\documentclass[twoside, onecolumn, openright]{book}
+\usepackage[paperwidth=549pt, paperheight=684pt, left=1in, right=1in, top=1in,
+  bottom=1.125in]{geometry}
+\usepackage{hyperref}
+%\usepackage{tex4ht}
+%\hypersetup{nolinks=true}
+\hypersetup{
+  pdftex,
+  allcolors=blue,
+  bookmarksnumbered=true,     
+  bookmarksopen=true,         
+  bookmarksopenlevel=1,       
+  colorlinks=true,            
+  pdfstartview=Fit,           
+  pdfpagemode=UseOutlines,  
+  pdfpagelayout=TwoPageRight,
+}
+
+%\usepackage{cite}
+\usepackage[english]{babel}
+%\usepackage{xcolor}  
+\usepackage[dvipsnames]{xcolor}
+\definecolor{Gray}{RGB}{204, 204, 204}
+\setlength\parindent{0pt}
+\usepackage{anyfontsize}
+\usepackage[11pt]{moresize}
+\usepackage[document]{ragged2e}
+\usepackage{fancyhdr}
+\usepackage{t1enc}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{booktabs}
+\usepackage{xfrac}
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
+\usepackage{bold-extra}
+\usepackage{natbib}
+\usepackage{chapterbib}
+\usepackage{enumerate}
+\usepackage{hyperref}
+\usepackage{titletoc}
+\usepackage{amsfonts, amssymb, amsmath}
+\usepackage{wrapfig}
+\usepackage{graphicx}
+\graphicspath{ {./Images/} }
+\usepackage{float}
+\usepackage[inline, shortlabels]{enumitem}
+\setlength{\parskip}{5pt}
+
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{xurl}
+\usepackage{mathptmx}
+\usepackage{array}
+\usepackage{changepage}
+\usepackage{minted}
+\setminted{frame=lines, breaklines=true, framesep=2mm, baselinestretch=1.2, linenos,
+  mathescape,numbersep=5pt,} 
+
+\usepackage{adjustbox}
+
+\AtBeginEnvironment{quote}{\itshape}
+\setcounter{secnumdepth}{5}
+\setcounter{tocdepth}{5}
+
+\titleformat{\section}
+  {\AlegreyaSans\fontsize{18}{20}\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\AlegreyaSans\fontsize{16}{18}\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+  {\AlegreyaSans\fontsize{14}{16}\bfseries}{\thesubsubsection}{1em}{}
+\titleformat{\paragraph}
+  {\AlegreyaSans\fontsize{12}{14}\bfseries}{\theparagraph}{1em}{}
+\titleformat{\subparagraph}
+  {\AlegreyaSans\fontsize{9}{11}\bfseries}{\thesubparagraph}{1em}{}
+
+\usepackage{soul}
+\usepackage[framemethod=tikz,xcolor=true]{mdframed}
+\newenvironment{Verse}
+  {\center\varwidth{\linewidth}}
+  {\endvarwidth\endcenter}  
+  
+\addto\captionsenglish{
+ \renewcommand{\contentsname}
+ {Table Of Contents}
+}
+
+\usepackage[format=plain,
+            labelfont=it,
+            textfont=it]{caption}
+
+\usepackage{Alegreya}
+\usepackage[sfdefault]{AlegreyaSans}
+
+ \titleformat{\chapter}[display]
+ {\fontsize{40}{45}\selectfont}
+ {\filleft\thechapter}{1em}{}
+
+\usepackage{imakeidx}
+\makeindex[columns=2, title=Index, 
+ options= -s index_style.ist]
+
+%% \usepackage[margins]{trackchanges}
+%% \addeditor {AK}
+%% \addeditor {JJ}
+%% \addeditor {AR}
+%% \addeditor {ED}
+%% \addeditor {JR}
+
+
+% Ivan Murashko addons
+\usepackage[pdf]{graphviz}
+\usepackage{tabularx}
+\usepackage{verbatimbox}
+\usepackage{xcolor} % to access the named colour LightGray
+
+\definecolor{LightGray}{gray}{0.9}
+\setminted[shell]{breaklines,mathescape,linenos,numbersep=5pt,frame=single,numbersep=5pt,xleftmargin=4em,}
+
+
+%
+% https://tex.stackexchange.com/questions/187388/amsthm-with-shared-counters-messes-up-autoref-references
+%
+\usepackage{aliascnt}
+\usepackage{cleveref}
+\usepackage{tikz}
+\usepackage{tikz-cd}
+\usetikzlibrary{calc,trees,positioning,arrows,chains,shapes.geometric,%
+    decorations.pathreplacing,decorations.pathmorphing,shapes,%
+    matrix,shapes.symbols}
+\tikzstyle{block} = [rectangle, draw, 
+    text width=5em, text centered, rounded corners, minimum height=4em]
+\tikzstyle{line} = [draw, -latex']
+
+\usepackage{smartdiagram}
+\usepackage[edges]{forest}
+
+\makeatletter
+\newcommand{\getnamereftext}[1]{%
+  \@ifundefined{r@#1}{}{%
+    \unexpanded\expandafter\expandafter\expandafter{%
+      \expandafter\expandafter\expandafter\@thirdoffive\csname r@#1\endcsname
+    }%
+  }%
+}
+
+\newcommand{\myindex}[1]{%
+   #1 
+  {\expandafter\index{#1}}%
+}%
+
+\newcommand{\myshell}[1]{%
+   \texttt{#1} %
+}%
+
+\newcommand{\lldb}{%
+  LLDB %
+  \index{LLDB} %
+}%
+
+\newcommand{\gdb}{%
+  GDB %
+  \index{GDB} %
+}%
+
+\newcommand{\clang}{%
+  Clang \index{Clang}
+}%
+
+\newcommand{\lexer}{%
+  Lexer %
+  \index{Lexer} %
+}%
+
+\newcommand{\parser}{%
+  Parser %
+  \index{Lexer} %
+}%
+
+\newcommand{\myast}{%
+  AST %
+  \index{AST} %
+}%
+
+\newcommand*{\fullref}[1]{\hyperref[{#1}]{\Cref*{#1}, \nameref*{#1}}} % One single link
+
+\begin{document}
+\input front.tex
+\tableofcontents
+\newpage
+
+\input preface.tex
+\input part1/main.tex
+\input part2/main.tex
+\input part3/main.tex
+\input back.tex
+
+\printindex
+\bibliographystyle{plainnat}  
+\bibliography{clangbook}
+
+\end{document}

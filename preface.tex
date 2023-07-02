@@ -1,0 +1,152 @@
+%% -*- coding:utf-8 -*-
+\pagestyle{fancy}
+\nopagecolor
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Preface}
+
+\begin{FlushLeft}
+
+\section*{\HUGE{\AlegreyaSansLight Preface}}
+\label{sec:preface}
+The \clang is a C/C++ and Objective-C compiler that is an integral part of the
+LLVM (Low Level Virtual Machine) project. When we talk about \clang, we can refer to two different
+things. The first one is the compiler frontend, which is the part of the
+compiler responsible for parsing and performing semantic reasoning about the
+program. We also use the word \clang to refer to the compiler itself, which is
+also referred to as the compiler driver. The driver is responsible for invoking
+the compiler, which can be thought of as a manager that calls different parts of
+the compiler such as the compiler frontend and other parts necessary for
+successful compilation (middle-end, back-end, assembler, linker). 
+
+The book is mostly focused on the \clang compiler frontend, but it also includes
+some other relevant parts of LLVM that are critical for the frontend
+internals. The LLVM project evolves very fast, and some of its parts may be
+completely rewritten between different revisions. We will use a specific version
+of LLVM in the book - version 16.x, which was first released in March 2023
+\citep{llvm:releases}. 
+
+The \clang is compiler for C family of languages. Thus it supports such
+languages as C, Objective-C, C++ and Objective-C++. We are going mostly focus on
+C++ realisation. That assumes that we will refer C++ standard very
+often. Despite the fact that LLVM uses C++17 \citep{standard:cpp17}for
+implementation it implements the latest version of standard and we will use
+C++20 version of standard \citep{standard:cpp20} for references.
+
+\section*{Who this book is for}
+This book is intended for experienced C++ software engineers who have no prior
+experience with compiler design, but who want to gain this knowledge and put it
+into practice. It may also be useful for engineers who want to learn about how
+Clang works, as well as its specific features such as performance improvements
+and modularity, which enables the creation of powerful custom compiler tools 
+
+\section*{What this book covers}
+The book is divided into two parts. The first one provides basic information
+about the LLVM project and how it can be installed. It also describes useful
+development tools and configurations used for exploring LLVM code later in the
+book. The internal \clang architecture is the next main topic in the first part
+of the book. Knowledge about the \clang internals and its place inside LLVM is
+essential for any development related to \clang. The \clang is also very good
+example of well designed software that can be used as a sample of good design
+pattern.
+
+The final topic in the first
+part is compilation performance, particularly how it can be improved. We
+describe several \clang features that may significantly improve compilation
+speed, such as C++ modules, header maps, and others. 
+
+The \clang follows the primary paradigm of LLVM - everything is a library -
+which allows the creation of a variety of different tools. The second part of
+the book is about such tools. We discuss clang-tidy, a powerful framework for
+creating lint checks. We examine simple checks based on AST (abstract syntax
+tree) matching, as well as more powerful ones based on advanced techniques like
+CFG (control flow graph). The list of tools is not limited to code analysis, but
+also includes refactoring tools and IDE support. 
+
+\section*{Download the example code files}
+The code bundle for the book is also hosted on GitHub at \url{https://github.com/PacktPublishing/Clang-Compiler-Frontend}. In case there's an
+update to the code, it will be updated on the existing GitHub repository.\\
+
+
+We also have other code bundles from our rich catalog of books and videos available at \url{https://github.com/PacktPublishing/}. Check them out!
+
+\section*{Download the color images}
+We also provide a PDF file that has color images of the screenshots/diagrams used in this book. You can download it here: \url{https://static.packt-cdn.com/downloads/9781801071109_ColorImages.pdf}.
+
+\section*{Conventions used}
+There are a number of text conventions used throughout this book.\\
+
+
+
+\texttt{CodeInText}: Indicates code words in text, database table names, folder
+names, filenames, file extensions, pathnames, dummy URLs, and user input. Here
+is an example: "Any attempt to run the code that has such issues will
+immediately cause the interpreter to fail, raising a \texttt{SyntaxError}
+exception."\\ 
+
+A block of code is set as follows:
+\begin{minted}{cpp}
+int main() {
+  return 0;
+}
+\end{minted}
+
+
+Any command-line input or output is written as follows:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ python3 script.py
+\end{verbatim}
+\end{adjustwidth}
+
+Some code examples will be representing input of shells. You can recognize them by specific prompt characters:
+\begin{itemize}[nosep]
+    \item >>> for interactive Python shell
+    \item \$ for Bash shell (macOS and Linux)
+    \item > for CMD or PowerShell (Windows)
+\end{itemize}
+
+\newpage
+
+Warnings or important notes appear like this.
+\begin{center}
+\noindent\fbox{%
+    \parbox{14cm}{%
+        \textbf {Important note}\\
+        Warnings or important notes appear like this.
+    }%
+}
+\end{center}
+
+Tips and tricks appear like this.
+\begin{center}
+\noindent\fbox{%
+    \parbox{8cm}{%
+        \textbf {Tips or tricks}\\
+        Appear like this.
+    }%
+}
+\end{center}
+
+\section*{Get in touch}
+Feedback from our readers is always welcome.\\ 
+
+
+\textbf{General feedback}: If you have questions about any aspect of this book, mention the book title in the subject of your message and email us at \href{mailto:customercare@packtpub.com}{customercare@packtpub.com}.\\
+
+\textbf{Errata}: Although we have taken every care to ensure the accuracy of our content, mistakes do happen. If you have found a mistake in this book, we would be grateful if you would report this to us. Please visit \url{www.packt.com/submit-errata}, selecting your book, clicking on the Errata Submission Form link, and entering the details.\\
+ 
+
+\textbf{Piracy}: If you come across any illegal copies of our works in any form on the Internet, we would be grateful if you would provide us with the location address or website name. Please contact us at \href{mailto:copyright@packt.com}{copyright@packt.com} with a link to the material.\\
+ 
+\textbf{If you are interested in becoming an author}: If there is a topic that you have expertise in and you are interested in either writing or contributing to a book, please visit \url{authors.packtpub.com}.\\
+
+\section*{Reviews}
+Please leave a review. Once you have read and used this book, why not leave a review on the site that you purchased it from? Potential readers can then see and use your unbiased opinion to make purchase decisions, we at Packt can understand what you think about our products, and our authors can see your feedback on their
+book. Thank you!\\
+
+For more information about Packt, please visit \url{www.packt.com}.
+
+\end{FlushLeft}
+
+\clearpage

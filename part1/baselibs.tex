@@ -1,0 +1,38 @@
+%% -*- coding:utf-8 -*-
+\chapter{Basic libraries and tools}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Basic libraries and tools}
+LLVM has been written in C++ language and currently (since July 2022) uses the
+c++17 version of the C++ standard \citep{llvm:cpp17migration}. On the other side,
+it has a lot of internal implementations for fundamental containers with the
+primary goal of performance. Therefore, being familiar with the extensions is
+crucial if you want to work with LLVM and clang. In addition, LLVM also
+introduced additional development tools such as TableGen - DSL (domain-specific
+language) for structural data processing and LIT (LLVM test framework). You can
+find some info about the tools here. 
+
+We are planning to use a simple example project to demonstrate the tools. The
+example project will be \clang plugin that can estimate complexity of
+the source code being compiled and print a warning if the number of
+functions/methods exceeds the limit specified as a parameter.  
+
+\section{Basic libs}
+TBD
+
+\section{TableGen}
+TBD
+
+\section{LLVM test framework}
+\label{sec:LLVMTest}
+TBD
+
+\section{Summary}
+TBD
+
+\section{Further reading}
+\begin{itemize}
+\item LLVM Coding Standards: https://llvm.org/docs/CodingStandards.html \citep{llvm:coding_standards}
+\end{itemize}
+

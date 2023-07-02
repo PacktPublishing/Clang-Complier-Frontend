@@ -1,0 +1,154 @@
+%% -*- coding:utf-8 -*-
+\chapter{Features}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Features}
+
+ You can find some info about different clang features in the chapter. Some of
+ them are used with clang tools such as precompiled headers that allow fast
+ editing at different IDEs. Others are specific clang features that are not well
+ known but can provide some benefits, for instance, improving overall
+ compilation performance. We will start with a typical usage scenario for each
+ component and finish with its implementation details.
+ 
+\section{Precompiled headers}
+Precompiled headers or \textbf{pch} is a clang feature that was
+designed with the goal to improve clang frontend performance. The
+basic idea was to create \myindex{AST} for a header file and reuse the AST for
+some purposes.
+
+\subsection{User guide}
+Generate you pch file is simple \citep{clang:user_manual}. Suppose you have a header file with
+name \textbf{header.h}:
+\inputminted{c++}{./src/pch/simple/header.h} then you can generate a pch for it with
+\begin{minted}{shell}
+clang -x c++-header header.h -o header.pch
+\end{minted}
+the option \myshell{-x c++-header} was used there. The option says that
+the header file has to be treated as a c++ header file. The output
+file is \myshell{header.pch}.
+
+The precompiled headers generation is not enough and you may want to
+start using them. Typical C++ source file that uses the header may
+look like
+\inputminted{c++}{./src/pch/simple/main.cpp}
+As you may see, the header is included as follows
+\begin{minted}{c++}
+  ...
+#include "header.h"
+  ...
+\end{minted}
+By default clang will not use a pch at the case and you have to
+specify it explicitly with
+\begin{minted}{shell}
+clang -include-pch header.pch main.cpp -o main -lstdc++
+\end{minted}
+We can check the command with debugger and it will give us
+\begin{minted}{shell}
+$ lldb ~/local/llvm-project/build/bin/clang -- -cc1 -include-pch header.pch main.cpp -fsyntax-only
+...
+(lldb) b clang::ASTReader::ReadAST                                             
+...
+(lldb) r
+...
+   4231   llvm::SaveAndRestore<SourceLocation>
+-> 4232     SetCurImportLocRAII(CurrentImportLoc, ImportLoc);
+   4233   llvm::SaveAndRestore<Optional<ModuleKind>> SetCurModuleKindRAII(
+   4234       CurrentDeserializingModuleKind, Type);
+   4235 
+(lldb) p FileName
+(llvm::StringRef) $0 = (Data = "header.pch", Length = 10)
+\end{minted}
+Note that only the first \myshell{--include-pch} option will be
+processed, all others will be ignored. It reflects the fact that there
+can be only one precompiled header for a translation unit.
+
+\section{Modules}
+Modules can be considered as a next step in evolution of precompiled
+headers. They also represent an parsed AST in binary form but form a
+DAG (tree) i.e. one module can include more than one another module
+\footnote{Compare that with precompiled header where only one
+precompiled header can be introduced for each compilation unit}
+\subsection{User guide}.
+
+The C++20 standard \citep{standard:cpp20} introduced 2 concepts
+related to modules. The first one is ordinary modules described at
+section 10 of \citep{standard:cpp20}. Another one is so call
+\myindex{header unit} that is mostly described at section 15.5.
+The header units can be considered as an intermediate step between
+ordinary headers and modules and allow to use
+\myshell{import} directive to import ordinary headers. The
+second approach was the main approach for modules implemented in clang
+and we will call it as \textbf{implicit modules}. The first one (primary one
+described at \citep{standard:cpp20}) will be call \textbf{explicit
+  modules}. We will start with the implicit modules first.
+
+\subsection{Implicit modules}
+The key point for implicit clang modules is \myshell{modulemap}
+file. It describes relation between different modules and interface
+provided by the modules. The default name for the file is
+\myshell{module.modulemap}. Typical content is the following
+\begin{minted}{shell}
+module header1 {
+  header "header1.h"
+  export *
+}
+\end{minted}
+The header paths in the modulemap file has to be ether absolute or
+relative on the module map file location. Thus compiler should have a
+chance to find them to compile.
+
+There are 2 options to process the configuration file: explicit or
+implicit. The first one (explicit) assumes that you pass it via
+\myshell{-fmodule-map-file=<path to modulemap file>}. The
+second one (default) will search for modulemap files implicitly and
+apply them. You can turn off the behaviour with
+\myshell{-fno-implicit-module-maps} command line argument.
+
+
+\subsubsection{Explicit modules}
+TBD
+
+\subsubsection{Some problems related to modules}
+The code that uses modules can introduce some non trivial behaviour of
+your program. Consider the project that consists of two headers.
+
+\myshell{header1.h}:
+\inputminted{c++}{./src/pcm/nontrivial/header1.h}
+
+\myshell{header2.h}:
+\inputminted{c++}{./src/pcm/nontrivial/header2.h}
+
+The \myshell{header1.h} is included into the
+\myshell{main.cpp}
+\inputminted{c++}{./src/pcm/nontrivial/main.cpp}
+
+The code will not compile
+
+\begin{minted}{shell}
+clang++ -std=c++20 -fconstexpr-depth=1271242 main.cpp -o main -lstdc++
+main.cpp:7:37: error: use of undeclared identifier 'h2'
+  std::cout << "Header2 value: " << h2 << std::endl;
+                                    ^
+1 error generated.
+\end{minted}
+but if you use the following \myshell{module.modulemap} file
+then it will compile with modules
+\inputminted{text}{./src/pcm/nontrivial/module.modulemap}
+The example shows how the visibility scope can be leaked when
+modules are used in the project. 
+
+\subsection{Modules internals}
+Modules are processed inside
+\mintinline{c++}{clang::Preprocessor::HandleIncludeDirective}. There
+is a \mintinline{c++}{clang::Preprocessor::HandleHeaderIncludeOrImport} method. 
+
+The module is loaded by
+\mintinline{c++}{clang::CompilerInstance::loadModuleFile}. The method caalls
+ \mintinline{c++}{clang::CompilerInstance::findOrCompileModuleAndReadAST}
+
+% 
+
+\section{Header-Map files}
+TBD

@@ -1,0 +1,782 @@
+%% -*- coding:utf-8 -*-
+\chapter{\textbf{Environment setup}}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Environment setup}
+
+In this chapter we will discuss the basic steps to be done to setup the
+environment for 
+future experiments with \clang. The setup is appropriate for Unix-based systems
+such as Linux and Mac OS (Darwin). In addition, the reader will get important
+information on how to download, configure, and build the LLVM source code. We
+will continue with a short session that shows you how to build and use the LLVM
+debugger (\lldb), which will be used as the primary tool for code investigation
+throughout the book. Finally, we will finish with a simple clang tool that can
+check C/C++ files for compilation errors. We will use LLDB for a simple debug
+session for the created tool and clang internal. 
+
+We will cover the following topics:
+\begin{itemize}
+\item Technical requirements
+\item Prerequisite
+\item Getting to known LLVM
+\item Source code compilation
+\item How to create a custom clang tool
+\end{itemize}
+
+\section{Technical requirements}
+Downloading and building LLVM code is very easy and does not require any paid tools.
+You will require the following: 
+\begin{itemize}
+\item Unix based OS (Linux, Darwin)
+\item Command line git  
+\item Build tools: CMake and Ninja
+\end{itemize}
+We will use debugger as the source investigation tool. LLVM has its own debugger
+- LLDB. We will build it as our first tool build from LLVM monorepo.
+
+Any build process consists of two steps. The first one is the project
+configuration and the last one is the build itself. LLVM uses CMake as build
+configuration tool. It also can use wide range of different build tools such as
+Unix Makefiles, Ninja and so on. It can also generate project files for popular IDEs such
+as Visual Studio and XCode. We are going to use Ninja as the build tool as soon
+as it provides more faster build process and the most LLVM developers use it
+\citep{llvm:getstarted}   
+
+\subsection{CMake as build configuration tool}
+CMake is an open-source, cross-platform build system generator. It has been used
+as the primary build system for LLVM since version 3.3, which was released in
+2013. 
+
+Before LLVM began using CMake, it used autoconf, a tool that generates a
+configure script that can be used to build and install software on a wide range
+of Unix-like systems. However, autoconf has several limitations, such as being
+difficult to use and maintain, and having poor support for cross-platform
+builds. CMake was chosen as an alternative to autoconf because it addresses
+these limitations and is easier to use and maintain. 
+
+In addition to being used as the build system for LLVM, CMake is also used for
+many other software projects, including Qt \citep{enwiki:qt}, OpenCV \citep{enwiki:opencv}, Google Test \citep{enwiki:gtest},
+and others.
+
+\subsection{Ninja as build tool}
+
+Ninja is a small build system with a focus on speed. It is designed to be used
+in conjunction with a build generator, such as CMake, which generates a build
+file that describes the build rules for a project. 
+
+One of the main advantages of Ninja is its speed. It is able to execute builds
+much faster than other build systems, such as Unix Makefiles, by only rebuilding
+the minimum set of files necessary to complete the build. This is because it
+keeps track of the dependencies between build targets and only rebuilds targets
+that are out of date. 
+
+Additionally, Ninja is simple and easy to use. It has a small and
+straightforward command-line interface, and the build files it uses are simple
+text files that are easy to read and understand. 
+
+Overall, Ninja is a good choice for build systems when speed is a concern, and
+when a simple and easy-to-use tool is desired.
+
+One of the most useful Ninja option is \myshell{-j}. This option allows you to
+specify the number of commands to be run in parallel. You may want to specify
+the number depending on the hardware you are using. 
+
+Our next goal is to download LLVM code and investigate the project structure. We
+also need to set up the necessary utilities for the build process and establish
+the environment for our future experiments with LLVM code. This will ensure that
+we have the tools and dependencies in place to proceed with our work
+efficiently. 
+
+\section{Getting to know LLVM}
+
+Let's begin by covering some foundational information about LLVM, including the
+project history as well as its structure. 
+
+\subsection{Short LLVM history}
+The \clang compiler is a part of LLVM project. The project was started in 2000
+by Chris Lattner and Vikram 
+Adve as their project at the University of Illinois at Urbana–Champaign
+\citep{LLVM:CGO04}. 
+
+LLVM was originally designed to be a next-generation code generation
+infrastructure that could be used to build optimizing compilers for many
+programming languages. However, it has since evolved into a full-featured
+platform that can be used to build a wide variety of tools, including debuggers,
+profilers, and static analysis tools.
+
+LLVM has been widely adopted in the software industry and is used by many
+companies and organizations to build a variety of tools and applications. It is
+also used in academic research and teaching, and has inspired the development of
+similar projects in other fields.
+
+The project received an additional boost when Apple hired Chris Lattner in 2005
+and formed a team to work on LLVM. LLVM became an integral part of the
+development tools created by Apple (XCode).  
+
+Initially, GCC (GNU Compile Collection) was used as the C/C++ frontend for
+LLVM. But that had some disadvantages, one of them was related to GNU General Public
+License (GPL)
+that prevented the frontend usage at some proprietary projects. Another
+disadvantage was the limited support for the Objective-C language in GCC at the
+time, which was important for Apple. The clang project was started by Chris
+Lattner in 2006 to address the issues.
+
+\clang was originally designed as a unified parser for the C family
+of languages, including C, Objective-C, C++, and Objective-C++. This unification
+was intended to simplify maintenance by using a single frontend implementation
+for multiple languages, rather than maintaining multiple implementations for
+each language.
+
+The project became successful very quickly. One of the primary reasons for the
+success of \clang and LLVM was their modularity. Everything in LLVM is a library,
+including \clang. It opened the opportunity to create a lot of amazing tools
+based on \clang and LLVM, such as clang-tidy and clangd, which will be covered
+later in the book (see \fullref{ch:clangtidy} and \fullref{ch:clangd}). 
+
+LLVM and \clang have a very clear architecture and are written in C++. That
+makes possible to investigate and use it by any C++ developer. As result we can
+see huge community created around LLVM and extremely fast grows of its usage.   
+
+\subsection{OS support}
+We are planning to focus on OS for personal computers here, such as Linux,
+Darwin and Windows. From other side the \clang usage is not limited by
+the personal computers but can also be used to compile code for mobile platforms
+such as iOS and different embedded systems.
+
+\subsubsection{Linux}
+The GCC (GNU Compiler Collection) is the default set of dev tools on Linux,
+especially \myshell{gcc}(\myshell{g++}) is the default C/C++ compiler. The
+\clang can also be used to compile source code on Linux. Moreover it mimics to
+\myshell{gcc} and supports most of its options. From the other side LLVM
+support might be limited for some GNU tools, for instance GNU Emacs does
+not support \lldb as debugger. But despite the fact, the Linux is the most
+suitable OS for LLVM development and investigation, thus we will mainly use this
+OS for future examples. 
+
+\subsubsection{Darwin}
+The \clang is considered as the main build tool for Darwin. The entire
+build infrastructure is based on LLVM, and \clang is the default C/C++
+compiler. The developer tools, such as the debugger (\lldb), also come from
+LLVM. You can get the primary developer utilities from XCode, which are
+LLVM-based. However, you may need to install additional command-line tools, such
+as CMake and Ninja, either as separate packages or through package systems like
+MacPorts or Homebrew. For example, you can get CMake using Homebrew as
+follows  
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ brew install cmake
+\end{verbatim}
+\end{adjustwidth}
+or for MacPorts:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ sudo port install cmake
+\end{verbatim}
+\end{adjustwidth}
+
+\subsubsection{Windows}
+On Windows, \clang can be used as a command-line compiler or as part of a larger
+development environment such as Visual Studio. \clang on Windows includes support
+for the Microsoft Visual C++ (MSVC) ABI, so you can use \clang to compile
+programs that use the Microsoft C runtime library (CRT) and the C++ Standard
+Library (STL). \clang also supports many of the same language features as GCC,
+so  it can be used as a drop-in replacement for GCC on Windows in many cases. 
+
+It's worth mentioning \myshell{clang-cl}\citep{llvm:clangcl}, it is a
+command-line compiler driver for \clang that is designed to be used as a drop-in
+replacement for the Microsoft Visual C++ (MSVC) compiler, \myshell{cl.exe}. It
+was introduced as part of the \clang compiler, and is created to be used with the
+LLVM toolchain. 
+
+Like \myshell{cl.exe}, \myshell{clang-cl} is designed to be used as part of the
+build process for Windows programs, and it supports many of the same
+command-line options as the MSVC compiler. It can be used to compile C, C++, and
+Objective-C code on Windows, and it can also be used to link object files and
+libraries to create executable programs or dynamic-link libraries (DLLs). 
+
+\begin{quote}
+The development process for Windows is different from that of Unix-like systems,
+which would require additional specifics that might make the book material quite
+complicated. To avoid this complexity, our primary goal is to focus on
+Unix-based systems, such as Linux and Darwin, and we will omit Windows-specific
+examples in the book.
+\end{quote}
+
+\subsection{LLVM/clang project structure}
+The \clang source is a part of LLVM monorepo (monolithic repository). LLVM
+started to use monorepo in 2019 as a part of its transition to git
+\citep{llvm:llvm2git} (TBD - verify the statement). The decision was driven by
+number of factors such as 
+better code reuse, improved efficiency and collaboration. Thus you can find all
+LLVM projects in one place. As seen in \hyperref[sec:preface]{Preface}, we will
+be using LLVM version 16.x in this book. The following command will allow you to
+download it:  
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ git clone https://github.com/llvm/llvm-project.git -b release/16.x
+$ cd llvm-project
+\end{verbatim}
+\end{adjustwidth}
+
+The most important parts of the llvm-project that will be used in the book are
+shown in 
+\cref{fig:llvm_tree}. There are
+\begin{itemize}
+\item \myshell{lld} - the LLVM linker tool. You may want to use it as a
+  replacement for standard linker tools such as GNU \myshell{ld}. 
+\item \myshell{llvm} - common libraries for LLVM project
+\item \myshell{clang} - the clang driver and frontend
+\item \myshell{clang-tools-extra} - there are different clang tools that will be
+  covered at the second part of the book
+\end{itemize}
+\begin{figure}[H]
+  \begin{center}
+    \begin{tikzpicture}
+[
+    every node/.append style = {draw, anchor = west, minimum height = 0.6cm,
+      minimum width = 1.5cm},
+    grow via three points={one child at (0.5,-0.8) and two children at (0.5,-0.8) and (0.5,-1.6)},
+    edge from parent path={(\tikzparentnode\tikzparentanchor) |- (\tikzchildnode\tikzchildanchor)}]
+\node {llvm-project}
+child {node {...}}
+child {node {lld}}
+child {node {llvm}}
+child {node {...}}
+child {node {clang}}
+child {node {clang-tools-extra}};
+child {node {...}}
+\end{tikzpicture}
+  \end{center}
+  \caption{LLVM project tree: there are projects that are important for the
+    book: lldb (\lldb debugger), llvm (some common libs are located here), clang (C/C++
+    compiler frontend and driver) and clang-tools-extra (different clang tools
+    such as clang-tidy and clangd)}
+  \label{fig:llvm_tree}
+\end{figure}
+
+Most projects have the same structure shown in
+\cref{fig:typical_llvm_project}.
+\begin{figure}[H]
+  \begin{center}
+    \begin{tikzpicture}
+[
+    every node/.append style = {draw, anchor = west, minimum height = 0.6cm,
+      minimum width = 1.5cm}, 
+    grow via three points={one child at (0.5,-0.8) and two children at (0.5,-0.8) and (0.5,-1.6)},
+    edge from parent path={(\tikzparentnode\tikzparentanchor) |- (\tikzchildnode\tikzchildanchor)}]
+\node {(llvm,clang)}
+child {node {...}}
+child {node {include}}
+child {node {lib}}
+child {node {...}}
+child {node {test}}
+child {node {unittest}};
+child {node {...}}
+\end{tikzpicture}
+  \end{center}
+  \caption{Typical LLVM project structure: the primary source code is located at
+    include and lib folders. The test folder keeps LIT end-to-end tests and
+    unittest folder keeps tests written for google test framework}
+  \label{fig:typical_llvm_project}
+\end{figure}
+LLVM projects, such as \myshell{clang} or \myshell{llvm}, typically contain two
+primary folders: 
+\myshell{include} and \myshell{lib}. The
+\myshell{include} folder contains the project interfaces (header
+files), while the \myshell{lib} folder contains the
+implementation. Each LLVM project has a variety of different tests, which can be
+divided into two primary groups: unit tests located in the 'unittests' folder
+and implemented using the Google Test framework, and end-to-end tests
+implemented using the LLVM Integrated Tester (\myindex{LIT}) framework.
+You can get more info about LLVM/\clang testing in \fullref{sec:LLVMTest}.
+
+The most important projects for us are \myshell{clang} and \myshell{clang-tools-extra}. The
+\myshell{clang} folder contains the frontend and driver.
+\footnote{the compiler driver is used to run different stages of compilation
+(parsing, optimisation, link etc.). You can get more info about it at \fullref{sec:clang_driver}}
+For instance,
+the lexer implementation is located in the \myshell{clang/lib/Lex}
+folder. You can also see the \myshell{clang/test} folder, which
+contains end-to-end tests, and the \myshell{clang/unittest} folder,
+which contains unit tests for the frontend and driver. 
+
+Another important folder is \myshell{clang-tools-extra}. It contains
+some tools based on clang Abstract Syntax Tree (\myast). There are: 
+\begin{itemize}
+\item \myshell{clang-tools-extra/clangd} - a language server that
+  provides navigation info for IDEs such as VSCode. 
+\item \myshell{clang-tools-extra/clang-tidy} - a powerful lint
+  framework with several hundreds of different checks. 
+\item \myshell{clang-tools-extra/clang-format} - a code formatting tool.
+\end{itemize}
+
+After obtaining the source code and setting up build tools, we are ready to
+compile the LLVM source code. 
+
+\section{Source code compilation}
+
+We are compiling our source code in debug mode to make it suitable for future
+investigations with a debugger. We are using \lldb as the debugger. We will
+start with an overview of the build process and finish with a concrete example
+of the build for \lldb.
+
+\subsection{Configuration with CMake}
+\label{sec:config_with_cmake}
+Create a build folder where the compiler and related tools will be built
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ mkdir build
+$ cd build
+\end{verbatim}
+\end{adjustwidth}
+The minimal configuration command looks like
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ cmake -DCMAKE_BUILD_TYPE=Debug ../llvm 
+\end{verbatim}
+\end{adjustwidth}
+The command requires the build type to be specified (e.g. \myshell{Debug} in our
+case) 
+as well as the primary argument that points to a folder with the build
+configuration file. The configuration file is stored as \myshell{CMakeLists.txt}
+and is located in the \myshell{llvm} folder, which explains the
+\myshell{../llvm} argument usage. The command generate \myshell{Makefile}
+located at the build folder, thus you can use simple \myshell{make} command to start
+the build process.
+
+We will use more advanced configuration commands in the book. The command is
+shown in  \cref{lis:basic_config}.
+\begin{figure}[H]
+\begin{minted}[breaklines=true,linenos=false]{text}
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="lldb;clang;clang-tools-extra" -DLLVM_USE_SPLIT_DWARF=ON ../llvm
+\end{minted}
+\caption{CMake: basic configuration used for the build at the book}
+\label{lis:basic_config}
+\end{figure}
+
+The are several LLVM/cmake options specified:
+\begin{itemize}
+\item \myshell{-DCMAKE\_BUILD\_TYPE=Debug} sets the build
+  mode. The build with debug info will be created. There is a primary build
+  configuration for \clang internals investigations
+\item \myshell{-DCMAKE\_INSTALL\_PREFIX=../install} specifies the
+  installation folder
+\item \myshell{-DLLVM\_TARGETS\_TO\_BUILD="X86"} sets exact
+  targets to be build. It will avoid build unnecessary targets
+\item \myshell{-DLLVM\_ENABLE\_PROJECTS="lldb;clang;clang-tools-extra"}
+  specifies LLVM projects that we care about
+\item \myshell{-DLLVM\_USE\_SPLIT\_DWARF=ON} - spits debug information into
+  separate files. This option saves disk space as well as memory
+  consumption during the LLVM build.
+\end{itemize}
+
+We used \myshell{-DLLVM\_USE\_SPLIT\_DWARF=ON} to save some space on the disc. For
+instance the clang build with the option enabled takes 20Gb\footnote{The
+configuration specified at \cref{lis:basic_config} was used for the build. The
+build was run as \myshell{ninja clang}} space but it takes 31Gb space with the
+option disabled. Note that the option requires compiler used for clang build to
+support it. You might also notice that we create the build for one specific
+architecture - \myshell{"X86"}. This option also saved some space for us because
+otherwise all supported architecture will be built and the required space will
+increase from 20GB to 27Gb.
+
+You can save more space if you will use dynamic libraries instead of static
+ones.  \myshell{-DBUILD\_SHARED\_LIBS=ON} will build each LLVM component as shared
+library. The used space will be 14Gb at the case and the overall config command
+will look like this
+\begin{minted}[breaklines=true,linenos=false]{text}
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="lldb;clang;clang-tools-extra" -DLLVM_USE_SPLIT_DWARF=ON -DBUILD_SHARED_LIBS=ON ../llvm
+\end{minted}
+
+
+For performance purposes on Linux you might want to use \myshell{gold} linker
+instead of default one. The \myshell{gold} linker is an alternative to
+the GNU Linker that was developed as part of the GNU Binary Utilities (binutils)
+package. It is designed to be faster and more efficient than the GNU Linker,
+especially when linking large projects. One way it achieves this is by using a
+more efficient algorithm for symbol resolution and a more compact file format
+for the resulting executable. It can be enabled with
+\myshell{-DLLVM\_USE\_LINKER=gold} option. The result configuration command will
+look like. 
+\begin{minted}[breaklines=true,linenos=false]{text}
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="lldb;clang;clang-tools-extra" -DLLVM_USE_LINKER=gold -DLLVM_USE_SPLIT_DWARF=ON -DBUILD_SHARED_LIBS=ON ../llvm
+\end{minted}
+
+The debug build can be very slow and you may want to consider an alternative. A
+good compromise between debuggability and performance is the release build with
+debug information. To obtain this build, you can change the
+\myshell{CMAKE\_BUILD\_TYPE} flag to \myshell{RelWithDebInfo} in your overall configuration command. The command will
+then look like this: 
+\begin{minted}[breaklines=true,linenos=false]{text}
+cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo _DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="lldb;clang;clang-tools-extra" -DLLVM_USE_SPLIT_DWARF=ON ../llvm
+\end{minted}
+
+The following table keeps the list of some popular options \citep{llvm:build}.
+\begin{table}[htbp]
+\resizebox{\columnwidth}{!}{\
+  \begin{tabular}{|l|l|}
+    \hline
+    Option & Description\\
+    \hline
+    \myshell{CMAKE\_BUILD\_TYPE} & Specifies build configuration. \\
+    & Possible values
+    are \myshell{Release|Debug|RelWithDebInfo|MinSizeRel}. \\
+    & The \myshell{Release}
+    and \myshell{RelWithDebInfo}
+    are optimized for performance, \\
+    & \myshell{MinSizeRel} is optimized for size. \\ 
+    \hline
+    \myshell{CMAKE\_INSTALL\_PREFIX} & Installation prefix \\
+    \hline
+    \myshell{CMAKE\_{C,CXX}\_FLAGS} & Extra C/C++ flags be used for compilation \\
+    \hline
+    \myshell{CMAKE\_{C,CXX}\_COMPILER} & C/C++ compiler be used for
+    compilation. \\
+    & You might want to specify a non-default compiler to use some \\
+    & options that are not available or not supported by the default compiler \\
+    \hline
+    \myshell{LLVM\_ENABLE\_PROJECTS} & The projects to be enabled. We will use \myshell{clang;clang-tools-extra} \\
+    \hline
+    \myshell{LLVM\_USE\_LINKER} & Specifies the linker be used. \\
+    & There are several
+    options that include \myshell{gold} and \myshell{lld} \\
+    \hline
+  \end{tabular}
+}
+\caption{Configuration options}
+\label{tbl:config}
+\end{table}
+
+
+\subsection{Build}
+We need to call Ninja to build the desired project. The command for \clang build
+will look like 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ninja clang
+\end{verbatim}
+\end{adjustwidth}
+
+You can also run unit and end-to-end tests for the compiler with
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ninja check-clang
+\end{verbatim}
+\end{adjustwidth}
+The compiler binary can be found as \myshell{bin/clang} in the \myshell{build}
+folder.  
+
+%% \begin{quote}
+%% It should be noted that the build command will create a build for the compiler
+%% at the folder where the command was run i.e. \myshell{build}. The executable
+%% will be located at \myshell{bin/clang}. We will use the clang for
+%% our experiments that is build with basic configuration specified on
+%% \cref{lis:basic_config}. 
+%% \end{quote}
+
+
+You can also install the binaries into the folder specified with
+\myshell{-DCMAKE\_INSTALL\_PREFIX} option. It can be done as follows
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ninja install clang
+\end{verbatim}
+\end{adjustwidth}
+The folder \myshell{../install} (specified as the installation folder at
+\cref{lis:basic_config}) 
+will have the following structure
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ls ../install
+bin  include  lib  libexec  share
+\end{verbatim}
+\end{adjustwidth}
+
+\subsection{The LLVM debugger, its build and usage}
+The LLVM debugger, \lldb, has been created with a look at
+\gdb (GNU debugger). Some of its commands repeat the counterparts from
+\gdb. You may ask the question: "Why do we need a new debugger if we
+have a good one?" The answer can be found in the different architecture
+solutions used by GCC and LLVM. LLVM uses a modular architecture, and different
+parts of the compiler can be reused. For example, the \clang frontend can be
+reused in the debugger, resulting in actual support for modern C/C++
+features. For example, the print command in \myshell{lldb} can specify any valid
+language constructions and you can use some modern C++ features with the
+\myshell{lldb} print command. 
+
+In contrast, GCC uses a monolithic architecture, and it's hard to separate the
+C/C++ frontend from other parts. Therefore, \gdb has to implement
+language features separately, which may take some time before modern language
+features implemented in GCC become available in \gdb. 
+
+You may find some info about \lldb build and typical usage scenario in the
+following example.
+We are going to create a separate folder for release build  
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ cd llvm-project
+$ mkdir release
+$ cd release
+\end{verbatim}
+\end{adjustwidth}
+We configure our project in Release mode and specify the \myshell{lldb} and
+\myshell{clang} projects only 
+\begin{minted}[breaklines=true,linenos=false]{text}
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="lldb;clang" ../llvm
+\end{minted}
+We are going to build both \clang and \lldb using no more than 4 concurrent
+processes 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ninja clang lldb -j4
+\end{verbatim}
+\end{adjustwidth}
+You can install the created executables with the following command
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ninja install-clang install-lldb
+\end{verbatim}
+\end{adjustwidth}
+The binary will be installed into the folder specified via
+\myshell{-DCMAKE\_INSTALL\_PREFIX} config command argument. 
+
+We will use the following simple C++ program for the example debugger session
+\inputminted{c++}{./src/part1/ch1_setup/main.cpp}
+The program can be compiled using the following command
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+llvm-project/install/bin/clang main.cpp -o main -g -O0
+\end{verbatim}
+\end{adjustwidth}
+As you may notice we don't use optimization (\myshell{-O0} option) and store
+debug info at the binary (\myshell{-g} option).
+
+Typical debug session for the created executable is shown in \cref{lis:lldb_session}.
+\begin{figure}
+\begin{minted}{shell-session}
+$ llvm-project/install/bin/lldb main
+(lldb) target create "./main"
+...
+(lldb) b main
+Breakpoint 1: where = main`main + 11 at main.cpp:2:3,...
+(lldb) r
+Process 1443051 launched: ...
+Process 1443051 stopped
+* thread #1, name = 'main', stop reason = breakpoint 1.1
+    frame #0: 0x000055555555513b main`main at main.cpp:2:3
+   1    int main() {
+-> 2      return 0;
+   3    }
+(lldb) q
+\end{minted}
+\caption{\lldb session example}
+\label{lis:lldb_session}
+\end{figure}
+There are several actions done:
+\begin{itemize}
+  \item Run the debug session with \myshell{llvm-project/install/bin/lldb
+    src/main}, where \myshell{main} is the exacutable we want to debug, see
+    \cref{lis:lldb_session}, line 1.
+  \item We set breakpoint at the \myshell{main} function, see
+    \cref{lis:lldb_session}, line 4.
+  \item Run the session with \myshell{r} command, see
+    \cref{lis:lldb_session}, line 6.
+  \item We can see that the process is interrupted at the breakpoint, see
+    \cref{lis:lldb_session}, line 8, 12.
+  \item We finish the session with \myshell{q} command, see
+    \cref{lis:lldb_session}, line 14.
+\end{itemize}
+
+We are going to use \lldb as one of our tools for the \clang internals
+investigation. We will use the same sequence of commands that is shown in
+\cref{lis:lldb_session}. You can also use another debugger, such as \gdb, that
+has a similar set of commands as \lldb.
+
+\section{Test project: syntax check with clang tool}
+\label{sec:setup_test_project}
+For our first test project we will create a simple clang tool that runs compiler
+and checks syntax for provided source file. We will create so called out-of-tree
+LLVM project i.e. the project that will use LLVM but will be located outside the
+main LLVM source tree.
+
+There are several actions to be done to create the project:
+\begin{itemize}
+\item The required LLVM libraries and headers have to be built and installed
+\item We have to create a build configuration file for our test project
+\item The source code that uses LLVM has to be created
+\end{itemize}
+
+We will start with the first step and will install clang support libraries and
+headers. We will use the following configuration command for CMake:
+\begin{figure}[H]
+\begin{minted}[breaklines=true,linenos=false]{text}
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_USE_LINKER=gold -DLLVM_USE_SPLIT_DWARF=ON -DBUILD_SHARED_LIBS=ON ../llvm
+\end{minted}
+\caption{LLVM CMake configuration for simple syntax check clang tool}
+\label{lis:clang_tool_prepare}
+\end{figure}
+As you may notice, we enabled only one project: \texttt{clang}, all other
+options are standard for our debug build. The command has to be run from a
+created \texttt{build} folder inside LLVM source tree, as it was  suggested at
+\fullref{sec:config_with_cmake}. 
+
+The required libraries and headers can be installed with the following command
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ninja install
+\end{verbatim}
+\end{adjustwidth}
+The installation will be done into \texttt{install} folder as it was 
+specified at \mintinline{text}{CMAKE_INSTALL_PREFIX} option.
+
+We have to create two files for our project:
+\begin{itemize}
+\item \texttt{CMakeLists.txt} the build configuration file
+\item \texttt{TestProject.cpp} the project source code
+\end{itemize}
+
+The configuration file will accept a path to the LLVM install folder via
+\mintinline{text}{LLVM_HOME} environment variable. The configuration file is the
+following:
+\begin{figure}[H]
+  \inputminted{cmake}{./src/part1/ch1_setup/syntaxcheck/CMakeLists.txt}
+  \label{lis:cmake_sytax_check}
+  \caption{CMake file for simple syntax check clang tool}
+\end{figure}
+The most important parts of the file are
+\begin{itemize}
+\item Line 2: We specify the project name (syntax-check). That also be the name
+  for our executable 
+\item Lines 4-7: Test for \mintinline{text}{LLVM_HOME} environment variable
+\item Line 10: We set a path to LLVM CMake helpers
+\item Line 11: We load LLVM CMake package from the paths specified at line 10
+\item Line 14: We specify our source file that should be compiled
+\item Line 16: We setup an additional flag for compilation:
+  \texttt{-fno-rtti}. The flag is required as soon as LLVM is built without
+  RTTI. This is done in an effort to reduce code and executable size
+  \citep{llvm:coding_standards}.   
+\item Line 18-22 We specify the required libraries to be linked to our
+  program 
+\end{itemize}
+
+The source code for our tool is the following
+\inputminted{c++}{./src/part1/ch1_setup/syntaxcheck/SyntaxCheck.cpp}
+The most important part of the file are
+\begin{itemize}
+\item Line 7-9: The majority of compiler tools have the same set of command line
+  arguments. LLVM command line library \citep{llvm:commandline_library}
+  provides some API to process compiler command options. We setup the library
+  at line 7. We also setup additional help message at lines 8-9. 
+\item Line 13-18: We parse command line arguments
+\item Line 19-23: We create and run our clang tool
+\item Line 22: We use \texttt{clang::SyntaxOnlyAction} frontend action that
+  will run syntax and semantic check on the input file. You can get more info
+  about frontend actions later at \fullref{sec:frontend_action}.
+\end{itemize}
+
+We have to specify a path to LLVM \texttt{install} folder to build our tool. As
+it was mentioned above, the path has to be specified via
+\mintinline{text}{LLVM_HOME} environment variable. Our configuration command
+(see \cref{lis:clang_tool_prepare}) specifies the path as \texttt{install}
+folder inside LLVM project source tree. Thus we can build our tool as follows
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+export LLVM_HOME=<...>/llvm-project/install
+mkdir build
+cd build
+cmake -G Ninja ..
+ninja
+\end{verbatim}
+\end{adjustwidth}
+
+We can run the tool as follows
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ./build/syntax-check --help
+USAGE: syntax-check [options] <source0> [... <sourceN>]
+...
+\end{verbatim}
+\end{adjustwidth}
+
+The program will successively terminate if we run it on a valid C++ source file,
+but it will produce an error message if it's run on a broken C++ file:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ./syntax-check mainbroken.cpp 
+...
+Running without flags.
+mainbroken.cpp:2:11: error: expected ';' after return statement
+  return 0
+          ^
+          ;
+1 error generated.
+mainbroken.cpp.
+\end{verbatim}
+\end{adjustwidth}
+
+We can also run our tool under LLDB debugger.
+% lldb build/syntax-check -- ../main.cpp
+\begin{figure}[H]
+\begin{minted}{shell-session}
+$  llvm-project/install/bin/lldb ./syntax-check -- main.cpp 
+...
+(lldb) b clang::ParseAST
+...
+(lldb) r
+...
+Running without flags.
+Process 608249 stopped
+* thread #1, name = 'syntax-check', stop reason = breakpoint 1.1
+    frame #0: ... clang::ParseAST(...) at ParseAST.cpp:116:3
+   113 	
+   114 	void clang::ParseAST(...) {
+   115 	  // Collect global stats on Decls/Stmts ...
+-> 116 	  if (PrintStats) {
+   117 	    Decl::EnableStatistics();
+   118 	    Stmt::EnableStatistics();
+   119 	  }
+(lldb) c
+Process 608249 resuming
+Process 608249 exited with status = 0 (0x00000000) 
+(lldb)
+\end{minted}
+\label{lis:lldb_clang_tool}
+\caption{LLDB session for clang tool test project}
+\end{figure}
+We run \texttt{syntax-check} as the primary binary and set \texttt{main.cpp}
+source 
+file as an argument for the tool (\cref{lis:lldb_clang_tool}, line 1).
+We also set a breakpoint at
+\mintinline{c++}{clang::ParseAST} function (\cref{lis:lldb_clang_tool}, line
+3). The function is the primary entry point for source code parsing. We run
+program at line 5 and continue the execution after breakpoint at line 18.
+
+We will use the same debugging techniques later in the book when we will
+investigate clang source code.
+
+
+\section{Summary}
+
+In the chapter, we covered the history of the LLVM project, obtained the source
+code for LLVM, and explored its internal structure. We learned about the tools
+used to build LLVM, such as CMake and Ninja. We studied the various
+configuration options for building LLVM and how they can be used to optimize
+resources, including disk space. We built \clang and \lldb in release mode and
+used  the resulting tools to compile a basic program and run it under the
+debugger. We also created a simple clang tool and run it under LLDB debugger.
+
+The next chapter will introduce you to compiler design architecture and how it
+appears in the context of \clang. We will primarily focus on the \clang
+frontend, but we will also cover the important concept of the \clang driver -
+the backbone that manages all stages of the compilation process, from parsing to
+linking.
+
+\section{Further reading}
+\begin{itemize}
+\item Getting Started with the LLVM System,
+  https://llvm.org/docs/GettingStarted.html
+\item Building LLVM with CMake, https://llvm.org/docs/CMake.html
+\item Clang Compiler User’s Manual, https://clang.llvm.org/docs/UsersManual.html
+\end{itemize}

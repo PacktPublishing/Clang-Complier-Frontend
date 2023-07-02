@@ -1,0 +1,388 @@
+%% -*- coding:utf-8 -*-
+\chapter{Clang AST}
+The \myast is the skeleton for the Clang frontend. It is also the primary
+instrument for linters and other Clang tools. The AST keeps the results of
+syntax and semantic analysis and represents a tree
+\footnote{The Clang AST is not
+a real tree since backward edges are possible, making the graph a more suitable
+term to describe Clang's AST. We will cover some specific cases later (TBD
+link).}
+with leaf nodes for different objects, such as function declarations and
+loop bodies. Clang provides advanced tools for searching (matching) different
+nodes, which are implemented in the form of a DSL (domain-specific language). It
+is important to understand how it is implemented to be able to use it.
+
+We will start with the basic data structures and class hierarchy that Clang uses
+to create the AST. We will discuss the different methods used for AST traversal
+and some helper classes for node matching during the traversal. 
+
+\section{AST}
+Typical tree structure implemented in C++ has all nodes derived from a base
+class. Clang uses a different approach. It splits different C++ constructions
+into separate groups with basic classes for each of them.
+\begin{itemize}
+  \item Statements. \mintinline{c++}{clang::Stmt} is the basic class for all
+    statements. That includes 
+    ordinary statements such as \mintinline{c++}{clang::IfStmt} as well as expressions
+    and other C++ constructions
+  \item Declarations. \mintinline{c++}{clang::Decl} is the basic class for
+    declarations. This includes a variable, typedef, function, struct,
+    etc. There is also a separate basic class for declarations with context
+    i.e. declarations that might contain another declarations:
+    \mintinline{c++}{clang::DeclContext}. Translation units
+    (\mintinline{c++}{clang::TranslationUnitDecl} class) and namespaces
+    (\mintinline{c++}{clang::NamespaceDecl} class) are typical examples for
+    declarations with 
+    context.  
+  \item Types. \mintinline{c++}{clang::Type} is basic class for types representations.
+\end{itemize}
+Lets look at all the groups in details.
+
+\subsection{Statements}
+\mintinline{c++}{Stmt} is the basic class for all statements. The statements can
+be combined into 2 sets (see \cref{fig:ast_stmt}). The first one contains
+statements with values and an opposite group is for statements without values.
+\begin{figure}[H]
+  \resizebox{.9\linewidth}{!}{\
+    \begin{forest}
+      for tree={draw, rounded corners=5mm, font=\sffamily,
+        minimum width=2cm, minimum height=1cm,
+        forked edge, edge={blue,-latex},
+        s sep=2cm, l sep=1cm, fork sep=5mm}
+      [clang::Stmt
+        [Statements without a value
+          [clang::IfStmt]
+          [clang::CompoundStmt]
+          [Other statements]
+        ]
+        [Statements with a value
+          [clang::ValueStmt]
+        ]
+      ] 
+    \end{forest}
+  }
+  \caption{Clang AST: Statements}  
+  \label{fig:ast_stmt}
+\end{figure}
+
+The group of statements without a value consist of different C++ constructions
+such as if-statement (\mintinline{c++}{clang::IfStmt} class) or compound statement
+(\mintinline{c++}{CompoundStmt} class). The majority of all statements falls
+into the group.
+
+The group of statement with a value consists of one base class
+\mintinline{c++}{clang::ValueStmt} that has several children such as
+\mintinline{c++}{clang::LabelStmt} (for labels representation) or
+\mintinline{c++}{clang::ExprStmt} (for expressions representation), see
+\cref{fig:ast_valuestmt}.
+
+\begin{figure}
+  \resizebox{.9\linewidth}{!}{\
+    \begin{forest}
+      for tree={draw, rounded corners=5mm, font=\sffamily,
+        minimum width=2cm, minimum height=1cm,
+        forked edge, edge={blue,-latex},
+        s sep=2cm, l sep=1cm, fork sep=5mm}
+      [clang::ValueStmt [
+          clang::Expr [clang::BinaryOperator] [clang::CallExpr] [Other expressions]
+        ]
+        [clang::LabelStmt]
+      ]
+    \end{forest}
+  }
+  \caption{Clang AST: Statements with a value}  
+  \label{fig:ast_valuestmt}
+\end{figure}
+
+\subsection{Declarations}
+Declarations can also be combined into 2 primary groups: Declarations with
+context and without. Declarations with context can be considered as placeholders
+for other declarations. For example C++ namespace as well as translation unit or
+function declaration might contain other declarations. Declaration of a friend
+entity (\mintinline{c++}{clang::DeclFriend}) can 
+be considered as an example of a declaration without context.
+
+It has to be noted that classes that are inherited from
+\mintinline{c++}{DeclContext} have also \mintinline{c++}{clang::Decl} as their
+top parent.
+
+Some declarations can be redeclarated as in the following example
+\inputminted{c++}{./src/part1/ch2_arch/redeclaration.cpp}
+Such declarations have an additional parent that is implemented via
+\mintinline{c++}{clang::Redeclarable<...>} template.
+
+\subsection{Types}
+C++ is a statically typed language, which means that the types of
+variables must be declared at compile-time. The types allow compiler to make a
+reasonable conclusion about the program meaning i.e. types are important part of
+semantic analysis. \mintinline{c++}{clang::Type} is the basic class for types in
+Clang.
+
+Types in C/C++ might have qualifiers that are called as CV-qualifiers at
+standard \citep[basic.type.qualifier]{standard:cpp20}. CV here is for 2 keywords
+\mintinline{c++}{const} and \mintinline{c++}{volatile} that can be used as the
+qualifier for a type.
+\footnote{
+C99 standard has an additional type qualifier \mintinline{c++}{restrict} that is
+also supported by clang \citep[6.7.3]{standard:c99} 
+}
+Clang has a special class to support a type with qualifier:
+\mintinline{c++}{clang::QualType} that is a pair of a pointer to
+\mintinline{c++}{clang::Type} and a bit mask with information about the type
+qualifier. The class has a method to retrieve a pointer to the
+\mintinline{c++}{clang::Type} and check different qualifiers. The code below
+shows how we can check a type for a const qualifier
+\footnote{The code is from LLVM release 16.0,
+\texttt{clang/lib/AST/ExprConstant.cpp}, line 3855} 
+% clang/lib/AST/ExprConstant.cpp:3855
+\begin{minted}{c++}
+  bool checkConst(QualType QT) {
+    // Assigning to a const object has undefined behavior.
+    if (QT.isConstQualified()) {
+      Info.FFDiag(E, diag::note_constexpr_modify_const_type) << QT;
+      return false;
+    }
+    return true;
+  }
+\end{minted}
+It's worth mentioning that \mintinline{c++}{clang::QualType} has
+\mintinline{c++}{operator->()} and \mintinline{c++}{operator*()} implemented,
+i.e. it can be considered as a smart pointer for underlying
+\mintinline{c++}{clang::Type} class.
+
+In addition to the qualifiers type can have additional information that
+represents different memory address models, for instance there can be a
+pointer to an object or
+reference. \mintinline{c++}{clang::Type}
+has the following helper methods to check different address models:
+\begin{itemize}
+\item \mintinline{c++}{clang::Type::isPointerType()} for pointer type check
+\item \mintinline{c++}{clang::Type::isReferenceType()} for reference type check
+\end{itemize}
+
+Types in C/C++ can also use aliases that are introduced by using
+\mintinline{c++}{typedef} or \mintinline{c++}{using} keywords. The following
+code defines \mintinline{c++}{foo} and \mintinline{c++}{bar} as aliases for
+\mintinline{c++}{int} type
+\begin{minted}{c++}
+using foo = int;
+typedef int bar;
+\end{minted}
+Original types, \mintinline{c++}{int} at our case, are called as canonical. You
+can test if the type is canonical or not using
+\mintinline{c++}{clang::QualType::isCanonical()}
+method. \mintinline{c++}{clang::QualType} also provides a method to retrieve the
+canonical type from an alias: \mintinline{c++}{clang::QualType::getCanonicalType()}.
+
+\section{AST traversal. Test tool}
+Compiler need to traverse AST as soon as its generated to produce IR code. Thus
+having a suitable data structure for tree traversal is essential for AST design,
+i.e. AST has to be designed to provide an easiest way for the tree
+traversal. Typical way is to have common base class for AST nodes and the class
+has to provide a method to retrieve the node's children. As we know Clang's AST
+nodes do not have a common ancestor. How the tree traversal can be organized at
+the situation?
+
+To answer on the question we will create a simple clang tool that uses recursive
+AST visitor for traversal. The tool will emit a message when it finds a
+reference to a declaration (i.e. variable usage) in the analysed source code. We
+will use the same CMake file as it was 
+created for our first clang tool (see \cref{lis:cmake_sytax_check}), the only
+one additional library is added for the new tool: \texttt{clangAST}. The result
+\texttt{CMakeLists.txt} is the following:
+\inputminted[highlightlines={19}, firstline=2,lastline=24]{cmake}{src/part1/ch3_ast/astdumper/CMakeLists.txt}
+
+The \texttt{main} function for our tool looks like
+\inputminted[highlightlines={5,23}]{c++}{src/part1/ch3_ast/astdumper/AstDumper.cpp}
+As you may see (line 5,23), we use a custom frontend action for our project:
+\texttt{clangbook::astdumper::FrontendAction}.
+
+The code for the class is
+\inputminted{c++}{src/part1/ch3_ast/astdumper/FrontendAction.hpp}
+As you may see we redefined
+\mintinline{c++}{clang::ASTFrontendAction::CreateASTConsumer} 
+where we create our custom \mintinline{c++}{clangbook::astdumper::Consumer}(line 9).
+
+The code for our custom AST consumer is the following:
+\inputminted{c++}{src/part1/ch3_ast/astdumper/Consumer.hpp}
+
+As you may see we create an example visitor and invoke it at
+\mintinline{c++}{clang::ASTConsumer::HandleTranslationUnit}. The code for the
+visior is the most interesting for us:
+\inputminted{c++}{src/part1/ch3_ast/astdumper/Visitor.hpp}
+The code will print a message with the found object name when it finds a
+reference to a declaration, see lines 8-9. 
+
+We can build our program to use the same sequence of commands as for our test
+project, see \fullref{sec:setup_test_project}
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+export LLVM_HOME=<...>/llvm-project/install
+mkdir build
+cd build
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
+ninja
+\end{verbatim}
+\end{adjustwidth}
+As you may notice we used \myshell{-DCMAKE\_BUILD\_TYPE=Debug} option
+for CMake. That is because we want to investigate the result program under
+debugger. 
+
+The program we used for investigations previously (see \cref{fig:arch_max}) will
+be used for AST traversal investigations as well:
+\inputminted{c++}{./src/part1/ch2_arch/max.cpp}
+The program has 4 references to declarations: variables 'a' and 'b' at line 2,
+variable 'a' at line 3 and variable 'b' at line 4.
+
+We can run our program as follows:
+% ./build/astdumper ../../ch2_arch/max.cpp 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ./astdumper max.cpp 
+...
+Found reference to a declaration: 'a'
+Found reference to a declaration: 'b'
+Found reference to a declaration: 'a'
+Found reference to a declaration: 'b'
+\end{verbatim}
+\end{adjustwidth}
+
+Our test program uses \mintinline{c++}{clang::RecursiveASTVisitor} and our next
+task will be to get a better understanding how it works. We will use \lldb
+debugger as our primary tool for the investigations.
+
+\section{Recursive AST Visitor}
+As it was mentioned earlier we are going to use debugger for the recursive
+visitor investigations. The debugger session can be run as follows
+% lldb ./build/astdumper -- ../../ch2_arch/max.cpp
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ lldb ./astdumper -- max.cpp
+\end{verbatim}
+\end{adjustwidth}
+We will look into the traversal that finds a function declaration. We can setup
+breakpoint into
+\mintinline{c++}{clangbook::astdumper::Visitor::VisitDeclRefExpr} and run the
+debugging session:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+(lldb) b clangbook::astdumper::Visitor::VisitDeclRefExpr
+(lldb) r
+...
+* thread #1, name = 'astdumper', stop reason = breakpoint 1.1
+    frame #0: ... ::Visitor::VisitDeclRefExpr(...) at Visitor.hpp:8:15
+   5    class Visitor : public clang::RecursiveASTVisitor<Visitor> {
+   6    public:
+   7      bool VisitDeclRefExpr(const clang::DeclRefExpr *DRE) {
+-> 8        llvm::errs() << "Found reference to a declaration: '"
+   9                     << DRE->getFoundDecl()->getName() << "'\n";
+   10       return true;
+   11     }
+(lldb)
+\end{verbatim}
+\end{adjustwidth}
+We will start our investigation with 11th frame:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+(lldb) f 11
+frame #11: ... ::HandleTranslationUnit(...) at Consumer.hpp:11:20
+   8      Consumer() : V(std::make_unique<Visitor>()) {}
+   9    
+   10     virtual void HandleTranslationUnit(clang::ASTContext &Context) override {
+-> 11       V->TraverseDecl(Context.getTranslationUnitDecl());
+   12     }
+   13   
+   14   private:
+\end{verbatim}
+\end{adjustwidth}
+This is our code that starts the traversal procedure. We can use "up" and "down"
+command to navigate the stack. The next frame will be frame \#10:
+be
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+(lldb) down
+frame #10: ...::TraverseDecl(...) at DeclNodes.inc:645:1
+   642  #ifndef TRANSLATIONUNIT
+   643  #  define TRANSLATIONUNIT(Type, Base) DECL(Type, Base)
+   644  #endif
+-> 645  TRANSLATIONUNIT(TranslationUnit, Decl)
+   646  #undef TRANSLATIONUNIT
+   647  
+   648  LAST_DECL_RANGE(Decl, AccessSpec, TranslationUnit)
+\end{verbatim}
+\end{adjustwidth}
+It reflects the fact that we start with translation unit traversal. Frame \#8
+ gives us the code where we do the real traversal
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+(lldb) f 8
+frame #8: ...::TraverseDeclContextHelper(...) at RecursiveASTVisitor.h:1489:7
+   1486 
+   1487   for (auto *Child : DC->decls()) {
+   1488     if (!canIgnoreChildDeclWhileTraversingDeclContext(Child))
+-> 1489       TRY_TO(TraverseDecl(Child));
+   1490   }
+   1491 
+   1492   return true;
+\end{verbatim}
+\end{adjustwidth}
+The \mintinline{c++}{clang::TranslationUnitDecl} is inherited from
+\mintinline{c++}{clang::DeclContext} that is a holder for another
+declarations. The class provides \mintinline{c++}{clang::DeclContext::decls}
+method that can be used for a loop over all declarations stored at the specific
+\mintinline{c++}{clang::DeclContext} instance. Our translation unit keeps
+several declarations and one of them is our function. We can see it if we print
+an AST node for the \mintinline{c++}{Child} variable that was selected
+for execution at our breakpoint
+\footnote{
+It should be an AST node that corresponds to a declaration reference because we
+stopped at the top frame on the method that processes function declarations
+}
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+(lldb) p Child->dump()
+FunctionDecl ... max.cpp:1:1, line:5:1> line:1:5 max 'int (int, int)'
+|-ParmVarDecl ... used a 'int'
+|-ParmVarDecl ... used b 'int'
+`-CompoundStmt ... <col:23, line:5:1>
+...
+\end{verbatim}
+\end{adjustwidth}
+
+It's worth mentioning that there is a common pattern for AST recursive
+visitor. It uses ad-hoc methods of AST nodes for the tree traversal. For
+instance it uses loop over declarations stored at translation unit for finding a
+declaration reference.
+
+%% First of all, each AST node has ad-hoc methods that allow to select different
+%% children. For example \mintinline{c++}{clang::IfStmt} has a method to select
+%% conditional expression: \mintinline{c++}{clang::IfStmt::getCond()}, method to
+%% select \texttt{then} statement: \mintinline{c++}{clang::IfStmt::getThen()} and a
+%% method to select \texttt{else} statement
+%% \mintinline{c++}{clang::IfStmt::getElse()}.
+
+%% Having different methods to retrieve children does not make our life easiest. 
+%% TBD
+
+\section{AST matchers}
+TBD
+
+\section{Explore clang AST with clang-query}
+
+TBD
+
+\section{Errors processing}
+\clang tries to collect as many errors as possible while compiling a program.
+TBD
+
+\section{Summary}
+
+TBD
+
+
+\section{Further reading}
+\begin{itemize}
+  \item How to write RecursiveASTVisitor: https://clang.llvm.org/docs/RAVFrontendAction.html
+\end{itemize}
+
+

@@ -1,0 +1,218 @@
+df3d196f4d5398e80d7fbe8360a57a1d4822d141
+
+
+commit 6b2ad75bfe8f7958d510a8504519a7acf028f6f1
+Author: Ivan Murashko <ivan.murashko@gmail.com>
+Date:   Mon May 8 08:12:31 2023 +0100
+
+    chapters split added
+
+
+
+
+good
+
+commit 9ae710baa7c61595d473ddd3bcbe185b2ee73884 (HEAD)
+Author: Ivan Murashko <ivan.murashko@gmail.com>
+Date:   Sun May 7 07:50:58 2023 +0100
+
+    Structure updates
+
+
+commit 5ebf8baa23dc122bd972d1525ea47d6a34b74b8a
+Author: Ivan Murashko <ivan.murashko@gmail.com>
+Date:   Sat May 6 09:40:38 2023 +0100
+
+    Some comments about coding standards and RTTI usage was added
+
+
+commit a2eae50440d6fe81b1e621d7166d0ee7966f2e04
+Author: Ivan Murashko <ivan.murashko@gmail.com>
+Date:   Sun Apr 30 20:19:04 2023 +0100
+
+    Setup: the test project was renamed
+
+
+ommit e5e0c0661b9ebe6df271cc6a7195551c7b75a475 (HEAD)
+Author: Ivan Murashko <ivan.murashko@gmail.com>
+Date:   Sun Apr 23 11:32:43 2023 +0100
+
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="lldb;clang;clang-tools-extra" -DLLVM_USE_SPLIT_DWARF=ON ../llvm
+
+* thread #1, name = 'clang', stop reason = breakpoint 1.1
+  * frame #0: 0x00007fffe8155d95 libclangParse.so.16`clang::Parser::ParseReturnStatement(this=0x00000
+0000053ea40) at ParseStmt.cpp:2358:3
+    frame #1: 0x00007fffe814df20 libclangParse.so.16`clang::Parser::ParseStatementOrDeclarationAfterAttributes(this=0x000000000053ea40, Stmts=0x00007fffffff91a0, StmtCtx=Compound, TrailingElseLoc=0x0000000000000000, CXX11Attrs=0x00007fffffff8ea0, GNUAttrs=0x00007fffffff8e10) at ParseStmt.cpp:327:31
+    frame #2: 0x00007fffe814d135 libclangParse.so.16`clang::Parser::ParseStatementOrDeclaration(this=0x000000000053ea40, Stmts=0x00007fffffff91a0, StmtCtx=Compound, TrailingElseLoc=0x0000000000000000) at ParseStmt.cpp:116:62
+    frame #3: 0x00007fffe8151574 libclangParse.so.16`clang::Parser::ParseCompoundStatementBody(this=0x000000000053ea40, isStmtExpr=false) at ParseStmt.cpp:1186:38
+    frame #4: 0x00007fffe8156487 libclangParse.so.16`clang::Parser::ParseFunctionStatementBody(this=0x000000000053ea40, Decl=0x00000000005451e0, BodyScope=0x00007fffffff9618) at ParseStmt.cpp:2450:47
+    frame #5: 0x00007fffe817cac7 libclangParse.so.16`clang::Parser::ParseFunctionDefinition(this=0x000000000053ea40, D=0x00007fffffff9950, TemplateInfo=0x00007fffffffa5a0, LateParsedAttrs=0x00007fffffff9920) at Parser.cpp:1461:36
+    frame #6: 0x00007fffe805b279 libclangParse.so.16`clang::Parser::ParseDeclGroup(this=0x000000000053ea40, DS=0x00007fffffffa910, Context=File, Attrs=0x00007fffffffb020, DeclEnd=0x0000000000000000, FRI=0x0000000000000000) at ParseDecl.cpp:2134:50
+    frame #7: 0x00007fffe817ba4a libclangParse.so.16`clang::Parser::ParseDeclOrFunctionDefInternal(this=0x000000000053ea40, Attrs=0x00007fffffffb020, DeclSpecAttrs=0x00007fffffffaf90, DS=0x00007fffffffa910, AS=AS_none) at Parser.cpp:1211:24
+    frame #8: 0x00007fffe817bb27 libclangParse.so.16`clang::Parser::ParseDeclarationOrFunctionDefinition(this=0x000000000053ea40, Attrs=0x00007fffffffb020, DeclSpecAttrs=0x00007fffffffaf90, DS=0x0000000000000000, AS=AS_none) at Parser.cpp:1226:42
+    frame #9: 0x00007fffe817aef4 libclangParse.so.16`clang::Parser::ParseExternalDeclaration(this=0x000000000053ea40, Attrs=0x00007fffffffb020, DeclSpecAttrs=0x00007fffffffaf90, DS=0x0000000000000000) at Parser.cpp:1041:50
+    frame #10: 0x00007fffe8179c5e libclangParse.so.16`clang::Parser::ParseTopLevelDecl(this=0x000000000053ea40, Result=0x00007fffffffb208, ImportState=0x00007fffffffb204) at Parser.cpp:743:36
+    frame #11: 0x00007fffe817937d libclangParse.so.16`clang::Parser::ParseFirstTopLevelDecl(this=0x000000000053ea40, Result=0x00007fffffffb208, ImportState=0x00007fffffffb204) at Parser.cpp:591:43
+    frame #12: 0x00007fffe803ed1f libclangParse.so.16`clang::ParseAST(S=0x0000000000532420, PrintStats=false, SkipFunctionBodies=false) at ParseAST.cpp:161:47
+    frame #13: 0x00007ffff2ec703d libclangFrontend.so.16`clang::ASTFrontendAction::ExecuteAction(this=0x00000000004ccaf0) at FrontendAction.cpp:1165:11
+    frame #14: 0x00007ffff2ec6993 libclangFrontend.so.16`clang::FrontendAction::Execute(this=0x00000000004ccaf0) at FrontendAction.cpp:1058:21
+    frame #15: 0x00007ffff2de7c46 libclangFrontend.so.16`clang::CompilerInstance::ExecuteAction(this=0x00000000004c8070, Act=0x00000000004ccaf0) at CompilerInstance.cpp:1046:41
+    frame #16: 0x00007ffff7f907ee libclangFrontendTool.so.16`clang::ExecuteCompilerInvocation(Clang=0x00000000004c8070) at ExecuteCompilerInvocation.cpp:264:38
+    frame #17: 0x0000000000422760 clang`cc1_main(Argv=ArrayRef<char const*> @ 0x00007fffffffb550, Argv0="/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang", MainAddr=0x000000000040f956) at cc1_main.cpp:251:40
+    frame #18: 0x0000000000411282 clang`ExecuteCC1Tool(ArgV=0x00007fffffffcbb0) at driver.cpp:360:20
+    frame #19: 0x00000000004119ec clang`clang_main(Argc=3, Argv=0x00007fffffffd9d8) at driver.cpp:435:26
+    frame #20: 0x00000000004436bf clang`main(argc=3, argv=0x00007fffffffd9d8) at clang-driver.cpp:11:52
+    frame #21: 0x00007ffff2a4a510 libc.so.6`__libc_start_call_main + 128
+    frame #22: 0x00007ffff2a4a5c9 libc.so.6`__libc_start_main@@GLIBC_2.34 + 137
+    frame #23: 0x000000000040f895 clang`_start + 37
+(lldb) 
+
+
+
+clang src/part1/ch2_arch/hello.cpp -o /tmp/hello -lstdc++ -###
+clang version 15.0.7 (Fedora 15.0.7-1.fc37)
+Target: x86_64-redhat-linux-gnu
+Thread model: posix
+InstalledDir: /usr/bin
+ "/usr/bin/clang-15" "-cc1" "-triple" "x86_64-redhat-linux-gnu" "-emit-obj" "-mrelax-all" "--mrelax-relocations" "-disable-free" "-clear-ast-before-backend" "-disable-llvm-verifier" "-discard-value-names" "-main-file-name" "hello.cpp" "-mrelocation-model" "static" "-mframe-pointer=all" "-fmath-errno" "-ffp-contract=on" "-fno-rounding-math" "-mconstructor-aliases" "-funwind-tables=2" "-target-cpu" "x86-64" "-tune-cpu" "generic" "-mllvm" "-treat-scalable-fixed-error-as-warning" "-debugger-tuning=gdb" "-fcoverage-compilation-dir=/home/ivanmurashko/works/myown/clangbook" "-resource-dir" "/usr/lib64/clang/15.0.7" "-internal-isystem" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12" "-internal-isystem" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12/x86_64-redhat-linux" "-internal-isystem" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12/backward" "-internal-isystem" "/usr/lib64/clang/15.0.7/include" "-internal-isystem" "/usr/local/include" "-internal-isystem" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../x86_64-redhat-linux/include" "-internal-externc-isystem" "/include" "-internal-externc-isystem" "/usr/include" "-fdeprecated-macro" "-fdebug-compilation-dir=/home/ivanmurashko/works/myown/clangbook" "-ferror-limit" "19" "-fgnuc-version=4.2.1" "-fcxx-exceptions" "-fexceptions" "-fcolor-diagnostics" "-faddrsig" "-D__GCC_HAVE_DWARF2_CFI_ASM=1" "-o" "/tmp/hello-c01ef8.o" "-x" "c++" "src/part1/ch2_arch/hello.cpp"
+ "/usr/bin/ld" "--hash-style=gnu" "--build-id" "--eh-frame-hdr" "-m" "elf_x86_64" "-dynamic-linker" "/lib64/ld-linux-x86-64.so.2" "-o" "/tmp/hello" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../lib64/crt1.o" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../lib64/crti.o" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/crtbegin.o" "-L/usr/bin/../lib/gcc/x86_64-redhat-linux/12" "-L/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../lib64" "-L/lib/../lib64" "-L/usr/lib/../lib64" "-L/lib" "-L/usr/lib" "/tmp/hello-c01ef8.o" "-lstdc++" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "-lc" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/crtend.o" "/usr/bin/../lib/gcc/x86_64-redhat-linux/12/../../../../lib64/crtn.o"
+
+[ivanmurashko@ivanmurashko-fedora clangbook]$ lldb ./llvm-project-16.x/build/bin/clang -- -cc1 -internal-isystem /usr/include/c++/12 -internal-isystem /usr/include/c++/12/x86_64-redhat-linux -internal-isystem /home/ivanmurashko/Projects/myown/clangbook/llvm-project-16.x/buildd/lib/clang/16/include -internal-externc-isystem /usr/include src/part1/ch2_arch/hello.cpp 
+(lldb) target create "./llvm-project-16.x/build/bin/clang"
+Current executable set to '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64).
+(lldb) settings set -- target.run-args  "-cc1" "-internal-isystem" "/usr/include/c++/12" "-internal-isystem" "/usr/include/c++/12/x86_64-redhat-linux" "-internal-isystem" "/home/ivanmurashko/Projects/myown/clangbook/llvm-project-16.x/buildd/lib/clang/16/include" "-internal-externc-isystem" "/usr/include" "src/part1/ch2_arch/hello.cpp"
+(lldb) r
+Process 27538 launched: '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64)
+Process 27538 exited with status = 0 (0x00000000) 
+(lldb) 
+
+
+[ivanmurashko@ivanmurashko-fedora clangbook]$ lldb ./llvm-project-16.x/build/bin/clang -- -cc1 -internal-isystem /usr/include/c++/12 -internal-isystem /usr/include/c++/12/x86_64-redhat-linux -internal-externc-isystem /usr/include src/part1/ch2_arch/hello.cpp 
+(lldb) target create "./llvm-project-16.x/build/bin/clang"
+Current executable set to '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64).
+(lldb) settings set -- target.run-args  "-cc1" "-internal-isystem" "/usr/include/c++/12" "-internal-isystem" "/usr/include/c++/12/x86_64-redhat-linux" "-internal-externc-isystem" "/usr/include" "src/part1/ch2_arch/hello.cpp"
+(lldb) r
+Process 27038 launched: '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64)
+In file included from src/part1/ch2_arch/hello.cpp:1:
+In file included from /usr/include/c++/12/iostream:39:
+In file included from /usr/include/c++/12/ostream:38:
+In file included from /usr/include/c++/12/ios:38:
+In file included from /usr/include/c++/12/iosfwd:40:
+In file included from /usr/include/c++/12/bits/postypes.h:40:
+In file included from /usr/include/c++/12/cwchar:44:
+/usr/include/wchar.h:35:10: fatal error: 'stddef.h' file not found
+#include <stddef.h>
+         ^~~~~~~~~~
+1 error generated.
+Process 27038 exited with status = 1 (0x00000001) 
+(lldb) q
+
+[ivanmurashko@ivanmurashko-fedora clangbook]$ lldb ./llvm-project-16.x/build/bin/clang -- -cc1 -internal-isystem /usr/include/c++/12 -internal-isystem /usr/include/c++/12/x86_64-redhat-linux -internal-externc-isystem /usr/include src/part1/ch2_arch/hello.cpp 
+(lldb) target create "./llvm-project-16.x/build/bin/clang"
+Current executable set to '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64).
+(lldb) settings set -- target.run-args  "-cc1" "-internal-isystem" "/usr/include/c++/12" "-internal-isystem" "/usr/include/c++/12/x86_64-redhat-linux" "-internal-externc-isystem" "/usr/include" "src/part1/ch2_arch/hello.cpp"
+(lldb) r
+Process 27038 launched: '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64)
+In file included from src/part1/ch2_arch/hello.cpp:1:
+In file included from /usr/include/c++/12/iostream:39:
+In file included from /usr/include/c++/12/ostream:38:
+In file included from /usr/include/c++/12/ios:38:
+In file included from /usr/include/c++/12/iosfwd:40:
+In file included from /usr/include/c++/12/bits/postypes.h:40:
+In file included from /usr/include/c++/12/cwchar:44:
+/usr/include/wchar.h:35:10: fatal error: 'stddef.h' file not found
+#include <stddef.h>
+         ^~~~~~~~~~
+1 error generated.
+Process 27038 exited with status = 1 (0x00000001) 
+(lldb) 
+
+lldb ./llvm-project-16.x/build/bin/clang -- -cc1 -internal-isystem /usr/include/c++/12 -internal-isystem /usr/include/c++/12/x86_64-redhat-linux src/part1/ch2_arch/hello.cpp 
+(lldb) target create "./llvm-project-16.x/build/bin/clang"
+Current executable set to '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64).
+(lldb) settings set -- target.run-args  "-cc1" "-internal-isystem" "/usr/include/c++/12" "-internal-isystem" "/usr/include/c++/12/x86_64-redhat-linux" "src/part1/ch2_arch/hello.cpp"
+(lldb) r
+Process 26855 launched: '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64)
+In file included from src/part1/ch2_arch/hello.cpp:1:
+In file included from /usr/include/c++/12/iostream:38:
+/usr/include/c++/12/x86_64-redhat-linux/bits/c++config.h:3:10: fatal error: 'bits/wordsize.h' file not found
+#include <bits/wordsize.h>
+         ^~~~~~~~~~~~~~~~~
+
+find /usr/include/ -name "c++config.h"
+/usr/include/c++/12/x86_64-redhat-linux/32/bits/c++config.h
+/usr/include/c++/12/x86_64-redhat-linux/bits/c++config.h
+
+[ivanmurashko@ivanmurashko-fedora clangbook]$ lldb ./llvm-project-16.x/build/bin/clang -- -cc1 -internal-isystem /usr/include/c++/12 src/part1/ch2_arch/hello.cpp 
+(lldb) target create "./llvm-project-16.x/build/bin/clang"
+Current executable set to '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64).
+(lldb) settings set -- target.run-args  "-cc1" "-internal-isystem" "/usr/include/c++/12" "src/part1/ch2_arch/hello.cpp"
+(lldb) r
+Process 26411 launched: '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64)
+In file included from src/part1/ch2_arch/hello.cpp:1:
+/usr/include/c++/12/iostream:38:10: fatal error: 'bits/c++config.h' file not found
+#include <bits/c++config.h>
+         ^~~~~~~~~~~~~~~~~~
+1 error generated.
+Process 26411 exited with status = 1 (0x00000001) 
+(lldb)
+
+
+[ivanmurashko@ivanmurashko-fedora clangbook]$ lldb ./llvm-project-16.x/build/bin/clang -- -cc1 src/part1/ch2_arch/hello.cpp 
+(lldb) target create "./llvm-project-16.x/build/bin/clang"
+Current executable set to '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64).
+(lldb) settings set -- target.run-args  "-cc1" "src/part1/ch2_arch/hello.cpp"
+(lldb) b ParseAST
+Breakpoint 1: no locations (pending).
+WARNING:  Unable to resolve breakpoint to any actual locations.
+(lldb) r
+Process 26232 launched: '/home/ivanmurashko/works/myown/clangbook/llvm-project-16.x/build/bin/clang' (x86_64)
+2 locations added to breakpoint 1
+Process 26232 stopped
+* thread #1, name = 'clang', stop reason = breakpoint 1.1
+    frame #0: 0x00007fffe803eae0 libclangParse.so.16`clang::ParseAST(S=0x0000000000532210, PrintStats=false, SkipFunctionBodies=false) at ParseAST.cpp:116:3
+   113  
+   114  void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
+   115    // Collect global stats on Decls/Stmts (until we have a module streamer).
+-> 116    if (PrintStats) {
+   117      Decl::EnableStatistics();
+   118      Stmt::EnableStatistics();
+   119    }
+(lldb) c
+Process 26232 resuming
+src/part1/ch2_arch/hello.cpp:1:10: fatal error: 'iostream' file not found
+#include <iostream>
+         ^~~~~~~~~~
+1 error generated.
+Process 26232 exited with status = 1 (0x00000001) 
+(lldb) 
+
+
+
+
+[ivanmurashko@ivanmurashko-fedora clangbook]$ ./llvm-project-16.x/build/bin/clang src/part1/ch2_arch/hello.cpp -lstdc++ -###
+clang version 16.0.0 (https://github.com/llvm/llvm-project.git f076b47e5216dd1578930d616bd728f0749bf118)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /home/ivanmurashko/works/myown/clangbook/./llvm-project-16.x/build/bin
+ "/home/ivanmurashko/Projects/myown/clangbook/llvm-project-16.x/buildd/bin/clang-16" "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" "-mrelax-all" "-disable-free" "-clear-ast-before-backend" "-main-file-name" "hello.cpp" "-mrelocation-model" "pic" "-pic-level" "2" "-pic-is-pie" "-mframe-pointer=all" "-fmath-errno" "-ffp-contract=on" "-fno-rounding-math" "-mconstructor-aliases" "-funwind-tables=2" "-target-cpu" "x86-64" "-tune-cpu" "generic" "-mllvm" "-treat-scalable-fixed-error-as-warning" "-debugger-tuning=gdb" "-fcoverage-compilation-dir=/home/ivanmurashko/works/myown/clangbook" "-resource-dir" "/home/ivanmurashko/Projects/myown/clangbook/llvm-project-16.x/buildd/lib/clang/16" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12/x86_64-redhat-linux" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12/backward" "-internal-isystem" "/home/ivanmurashko/Projects/myown/clangbook/llvm-project-16.x/buildd/lib/clang/16/include" "-internal-isystem" "/usr/local/include" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../x86_64-redhat-linux/include" "-internal-externc-isystem" "/include" "-internal-externc-isystem" "/usr/include" "-fdeprecated-macro" "-fdebug-compilation-dir=/home/ivanmurashko/works/myown/clangbook" "-ferror-limit" "19" "-fgnuc-version=4.2.1" "-fcxx-exceptions" "-fexceptions" "-fcolor-diagnostics" "-faddrsig" "-D__GCC_HAVE_DWARF2_CFI_ASM=1" "-o" "/tmp/hello-ec4693.o" "-x" "c++" "src/part1/ch2_arch/hello.cpp"
+ "/usr/bin/ld" "-pie" "--hash-style=gnu" "--eh-frame-hdr" "-m" "elf_x86_64" "-dynamic-linker" "/lib64/ld-linux-x86-64.so.2" "-o" "a.out" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64/Scrt1.o" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64/crti.o" "/usr/lib/gcc/x86_64-redhat-linux/12/crtbeginS.o" "-L/usr/lib/gcc/x86_64-redhat-linux/12" "-L/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64" "-L/lib/../lib64" "-L/usr/lib/../lib64" "-L/lib" "-L/usr/lib" "/tmp/hello-ec4693.o" "-lstdc++" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "-lc" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "/usr/lib/gcc/x86_64-redhat-linux/12/crtendS.o" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64/crtn.o"
+
+
+
+./bin/clang hello.cpp -lstdc++ -###
+clang version 16.0.0 (https://github.com/llvm/llvm-project.git fe8b4acbb578523a3a3fa5bf324b9ab9274c6f47)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /home/ivanmurashko/works/llvm-project-16.x/build/./bin
+ "/home/ivanmurashko/works/llvm-project-16.x/buildd/bin/clang-16" "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" "-mrelax-all" "-disable-free" "-clear-ast-before-backend" "-main-file-name" "hello.cpp" "-mrelocation-model" "pic" "-pic-level" "2" "-pic-is-pie" "-mframe-pointer=all" "-fmath-errno" "-ffp-contract=on" "-fno-rounding-math" "-mconstructor-aliases" "-funwind-tables=2" "-target-cpu" "x86-64" "-tune-cpu" "generic" "-mllvm" "-treat-scalable-fixed-error-as-warning" "-debugger-tuning=gdb" "-fcoverage-compilation-dir=/home/ivanmurashko/works/llvm-project-16.x/build" "-resource-dir" "/home/ivanmurashko/works/llvm-project-16.x/buildd/lib/clang/16" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/8/../../../../include/c++/8" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/8/../../../../include/c++/8/x86_64-redhat-linux" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/8/../../../../include/c++/8/backward" "-internal-isystem" "/home/ivanmurashko/works/llvm-project-16.x/buildd/lib/clang/16/include" "-internal-isystem" "/usr/local/include" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/8/../../../../x86_64-redhat-linux/include" "-internal-externc-isystem" "/include" "-internal-externc-isystem" "/usr/include" "-fdeprecated-macro" "-fdebug-compilation-dir=/home/ivanmurashko/works/llvm-project-16.x/build" "-ferror-limit" "19" "-fgnuc-version=4.2.1" "-fcxx-exceptions" "-fexceptions" "-fcolor-diagnostics" "-faddrsig" "-D__GCC_HAVE_DWARF2_CFI_ASM=1" "-o" "/tmp/hello-6177a1.o" "-x" "c++" "hello.cpp"
+ "/usr/bin/ld" "-pie" "--hash-style=gnu" "--eh-frame-hdr" "-m" "elf_x86_64" "-dynamic-linker" "/lib64/ld-linux-x86-64.so.2" "-o" "a.out" "/usr/lib/gcc/x86_64-redhat-linux/8/../../../../lib64/Scrt1.o" "/usr/lib/gcc/x86_64-redhat-linux/8/../../../../lib64/crti.o" "/usr/lib/gcc/x86_64-redhat-linux/8/crtbeginS.o" "-L/usr/lib/gcc/x86_64-redhat-linux/8" "-L/usr/lib/gcc/x86_64-redhat-linux/8/../../../../lib64" "-L/lib/../lib64" "-L/usr/lib/../lib64" "-L/lib" "-L/usr/lib" "/tmp/hello-6177a1.o" "-lstdc++" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "-lc" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "/usr/lib/gcc/x86_64-redhat-linux/8/crtendS.o" "/usr/lib/gcc/x86_64-redhat-linux/8/../../../../lib64/crtn.o"
+
+
+./llvm-project-15.x/build/bin/clang -cc1 -internal-isystem /home/ivanmurashko/Projects/myown/clangbook/llvm-project-15.x/buildd/lib/clang/15.0.7/include -internal-isystem /usr/include/c++/12  -internal-isystem /usr/include/c++/12/x86_64-redhat-linux -internal-externc-isystem /usr/include src/part1/ch2_arch/hello.cpp
+
+./llvm-project-15.x/build/bin/clang -cc1 -internal-isystem ./llvm-project-15.x/build/lib/clang/15.0.7/include -internal-isystem /usr/include/c++/12  -internal-isystem /usr/include/c++/12/x86_64-redhat-linux -internal-externc-isystem /usr/include src/part1/ch2_arch/hello.cpp
+
+InstalledDir: /home/ivanmurashko/works/myown/clangbook/./llvm-project-15.x/buildd/bin
+ "/home/ivanmurashko/Projects/myown/clangbook/llvm-project-15.x/buildd/bin/clang-15" "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" "-mrelax-all" "--mrelax-relocations" "-disable-free" "-clear-ast-before-backend" "-main-file-name" "hello.cpp" "-mrelocation-model" "pic" "-pic-level" "2" "-pic-is-pie" "-mframe-pointer=all" "-fmath-errno" "-ffp-contract=on" "-fno-rounding-math" "-mconstructor-aliases" "-funwind-tables=2" "-target-cpu" "x86-64" "-tune-cpu" "generic" "-mllvm" "-treat-scalable-fixed-error-as-warning" "-debugger-tuning=gdb" "-fcoverage-compilation-dir=/home/ivanmurashko/works/myown/clangbook" "-resource-dir" "/home/ivanmurashko/Projects/myown/clangbook/llvm-project-15.x/buildd/lib/clang/15.0.7" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12/x86_64-redhat-linux" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../include/c++/12/backward" "-internal-isystem" "/home/ivanmurashko/Projects/myown/clangbook/llvm-project-15.x/buildd/lib/clang/15.0.7/include" "-internal-isystem" "/usr/local/include" "-internal-isystem" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../x86_64-redhat-linux/include" "-internal-externc-isystem" "/include" "-internal-externc-isystem" "/usr/include" "-fdeprecated-macro" "-fdebug-compilation-dir=/home/ivanmurashko/works/myown/clangbook" "-ferror-limit" "19" "-fgnuc-version=4.2.1" "-fcxx-exceptions" "-fexceptions" "-fcolor-diagnostics" "-faddrsig" "-D__GCC_HAVE_DWARF2_CFI_ASM=1" "-o" "/tmp/hello-b14ab3.o" "-x" "c++" "src/part1/ch2_arch/hello.cpp"
+ "/usr/bin/ld" "-pie" "--hash-style=gnu" "--eh-frame-hdr" "-m" "elf_x86_64" "-dynamic-linker" "/lib64/ld-linux-x86-64.so.2" "-o" "a.out" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64/Scrt1.o" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64/crti.o" "/usr/lib/gcc/x86_64-redhat-linux/12/crtbeginS.o" "-L/usr/lib/gcc/x86_64-redhat-linux/12" "-L/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64" "-L/lib/../lib64" "-L/usr/lib/../lib64" "-L/lib" "-L/usr/lib" "/tmp/hello-b14ab3.o" "-lstdc++" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "-lc" "-lgcc" "--as-needed" "-lgcc_s" "--no-as-needed" "/usr/lib/gcc/x86_64-redhat-linux/12/crtendS.o" "/usr/lib/gcc/x86_64-redhat-linux/12/../../../../lib64/crtn.o" 
