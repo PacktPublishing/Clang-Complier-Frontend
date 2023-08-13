@@ -1,30 +1,41 @@
 %% -*- coding:utf-8 -*-
 \chapter{Clang AST}
-The \myast is the skeleton for the Clang frontend. It is also the primary
-instrument for linters and other Clang tools. The AST keeps the results of
-syntax and semantic analysis and represents a tree
-\footnote{The Clang AST is not
-a real tree since backward edges are possible, making the graph a more suitable
-term to describe Clang's AST. We will cover some specific cases later (TBD
-link).}
-with leaf nodes for different objects, such as function declarations and
-loop bodies. Clang provides advanced tools for searching (matching) different
-nodes, which are implemented in the form of a DSL (domain-specific language). It
-is important to understand how it is implemented to be able to use it.
+The Abstract Syntax Tree (AST) is a fundamental algorithmic structure used to
+represent the results of parsing. The AST serves as the framework for the Clang frontend and is the primary tool
+for various Clang utilities, including linters. Clang offers sophisticated tools
+for searching (or matching) various AST nodes. These tools are implemented using
+a DSL (domain-specific language). It's crucial to understand its implementation
+to use it effectively. 
 
-We will start with the basic data structures and class hierarchy that Clang uses
-to create the AST. We will discuss the different methods used for AST traversal
-and some helper classes for node matching during the traversal. 
+We will start with the basic data structures and the class hierarchy that Clang
+uses to construct the AST. Additionally, we will explore the methods used for
+AST traversal and highlight some helper classes that facilitate node matching
+during this traversal. 
 
 \section{AST}
+The AST is usually
+depicted as a tree, with its leaf nodes corresponding to various objects, such
+as function declarations and loop bodies. 
+Typically, the AST represents the result of syntax analysis, i.e.,
+parsing. Clang's AST nodes were designed to be immutable. This design requires
+that the Clang AST store results from semantic analysis, meaning the Clang AST
+represents the outcomes of both syntax and semantic analyses. 
+
+\begin{quote}
+Although Clang also
+employs an AST, it's worth noting that the Clang AST is not a true tree. The
+presence of backward edges makes "graph" a more appropriate term for describing
+Clang's AST.
+\end{quote}
+
 Typical tree structure implemented in C++ has all nodes derived from a base
 class. Clang uses a different approach. It splits different C++ constructions
 into separate groups with basic classes for each of them.
 \begin{itemize}
   \item Statements. \mintinline{c++}{clang::Stmt} is the basic class for all
     statements. That includes 
-    ordinary statements such as \mintinline{c++}{clang::IfStmt} as well as expressions
-    and other C++ constructions
+    ordinary statements such as if-statement (\mintinline{c++}{clang::IfStmt}
+    class) as well as expressions and other C++ constructions
   \item Declarations. \mintinline{c++}{clang::Decl} is the basic class for
     declarations. This includes a variable, typedef, function, struct,
     etc. There is also a separate basic class for declarations with context
@@ -34,13 +45,25 @@ into separate groups with basic classes for each of them.
     (\mintinline{c++}{clang::NamespaceDecl} class) are typical examples for
     declarations with 
     context.  
-  \item Types. \mintinline{c++}{clang::Type} is basic class for types representations.
+  \item Types. C++ has rich type system. It includes basic types such as
+    \mintinline{c++}{int} for integers as well as custom defined types and types
+    redefinition via \mintinline{c++}{typedef} or \mintinline{c++}{using}. Types
+    in C++ can have qualifiers such as \mintinline{c++}{const} and can represent
+    different memory addressing modes aka pointers, references etc. Clang uses
+    \mintinline{c++}{clang::Type} as the basic class for types representations
+    in AST. 
 \end{itemize}
-Lets look at all the groups in details.
+It's worth noting that there are additional relations between the groups. For
+example, the \mintinline{c++}{clang::DeclStmt} class, that inherits from
+\mintinline{c++}{clang::Stmt}, has methods to retrieve corresponding
+declarations. Additionally, expressions (represented by the
+\mintinline{c++}{clang::clang::Expr} class) which inherit from
+\mintinline{c++}{clang::Stmt} have methods to work with types. Let's look at all
+the groups in detail. 
 
 \subsection{Statements}
 \mintinline{c++}{Stmt} is the basic class for all statements. The statements can
-be combined into 2 sets (see \cref{fig:ast_stmt}). The first one contains
+be combined into two sets (see \cref{fig:ast_stmt}). The first one contains
 statements with values and an opposite group is for statements without values.
 \begin{figure}[H]
   \resizebox{.9\linewidth}{!}{\
@@ -122,18 +145,17 @@ Types in C/C++ might have qualifiers that are called as CV-qualifiers at
 standard \citep[basic.type.qualifier]{standard:cpp20}. CV here is for 2 keywords
 \mintinline{c++}{const} and \mintinline{c++}{volatile} that can be used as the
 qualifier for a type.
-\footnote{
+\begin{quote}
 C99 standard has an additional type qualifier \mintinline{c++}{restrict} that is
 also supported by clang \citep[6.7.3]{standard:c99} 
-}
+\end{quote}
 Clang has a special class to support a type with qualifier:
 \mintinline{c++}{clang::QualType} that is a pair of a pointer to
 \mintinline{c++}{clang::Type} and a bit mask with information about the type
 qualifier. The class has a method to retrieve a pointer to the
 \mintinline{c++}{clang::Type} and check different qualifiers. The code below
-shows how we can check a type for a const qualifier
-\footnote{The code is from LLVM release 16.0,
-\texttt{clang/lib/AST/ExprConstant.cpp}, line 3855} 
+shows how we can check a type for a const qualifier (the code is from LLVM
+release 16.0, \texttt{clang/lib/AST/ExprConstant.cpp}, line 3855)
 % clang/lib/AST/ExprConstant.cpp:3855
 \begin{minted}{c++}
   bool checkConst(QualType QT) {
@@ -174,47 +196,90 @@ can test if the type is canonical or not using
 method. \mintinline{c++}{clang::QualType} also provides a method to retrieve the
 canonical type from an alias: \mintinline{c++}{clang::QualType::getCanonicalType()}.
 
-\section{AST traversal. Test tool}
-Compiler need to traverse AST as soon as its generated to produce IR code. Thus
-having a suitable data structure for tree traversal is essential for AST design,
-i.e. AST has to be designed to provide an easiest way for the tree
-traversal. Typical way is to have common base class for AST nodes and the class
-has to provide a method to retrieve the node's children. As we know Clang's AST
-nodes do not have a common ancestor. How the tree traversal can be organized at
-the situation?
+\section{AST traversal}
+The compiler requires traversal of the AST to generate IR code. Thus, having a
+well-structured data structure for tree traversal is paramount for AST
+design. To put it another way, the design of the AST should prioritize
+facilitating easy tree traversal. A standard approach in many systems is to have
+a common base class for all AST nodes. This class typically provides a method to
+retrieve the node's children, allowing for tree traversal using popular
+algorithms like Breadth-First Search (BFS)
+\cite{book:cormen2009introduction}. Clang, however, takes a different approach:
+its AST nodes don't share a common ancestor. This poses the question: how is
+tree traversal organized in Clang? 
 
-To answer on the question we will create a simple clang tool that uses recursive
-AST visitor for traversal. The tool will emit a message when it finds a
-reference to a declaration (i.e. variable usage) in the analysed source code. We
-will use the same CMake file as it was 
-created for our first clang tool (see \cref{lis:cmake_sytax_check}), the only
-one additional library is added for the new tool: \texttt{clangAST}. The result
-\texttt{CMakeLists.txt} is the following:
-\inputminted[highlightlines={19}, firstline=2,lastline=24]{cmake}{src/part1/ch3_ast/astdumper/CMakeLists.txt}
+Clang employs three unique techniques:
+\begin{itemize}
+\item The Curiously Recurring Template Pattern (CRTP) for visitor class definition,
+\item Ad-hoc methods tailored specifically for different nodes,
+\item Macros, which can be perceived as the connecting layer between the ad-hoc methods and CRTP.
+\end{itemize}
 
-The \texttt{main} function for our tool looks like
-\inputminted[highlightlines={5,23}]{c++}{src/part1/ch3_ast/astdumper/AstDumper.cpp}
-As you may see (line 5,23), we use a custom frontend action for our project:
-\texttt{clangbook::astdumper::FrontendAction}.
+We will explore these techniques through a simple program  designed to identify
+function definitions and display the function names together with their
+parameters.  
 
-The code for the class is
-\inputminted{c++}{src/part1/ch3_ast/astdumper/FrontendAction.hpp}
-As you may see we redefined
-\mintinline{c++}{clang::ASTFrontendAction::CreateASTConsumer} 
-where we create our custom \mintinline{c++}{clangbook::astdumper::Consumer}(line 9).
+\subsection{DeclVisitor test tool}
+Our test tool will build upon the \mintinline{c++}{clang::DeclVisitor} class,
+which is defined as a straightforward visitor class aiding in the creation of
+visitors for C/C++ declarations. 
 
-The code for our custom AST consumer is the following:
-\inputminted{c++}{src/part1/ch3_ast/astdumper/Consumer.hpp}
+We will use the same CMake file as it was 
+created for our first clang tool (see \cref{lis:cmake_sytax_check}). The sole
+addition for the new tool is the \texttt{clangAST} library. The resultant
+\texttt{CMakeLists.txt} is shown in \cref{lis:cmake:declvisitor}:
+\begin{figure}[H]
+\inputminted[highlightlines={19},
+  firstline=2,lastline=24]{cmake}{src/part1/ch3_ast/declvisitor/CMakeLists.txt}
+\caption{CMakeLists.txt file for DeclVisitor test tool}
+\label{lis:cmake:declvisitor}
+\end{figure}
 
-As you may see we create an example visitor and invoke it at
-\mintinline{c++}{clang::ASTConsumer::HandleTranslationUnit}. The code for the
-visior is the most interesting for us:
-\inputminted{c++}{src/part1/ch3_ast/astdumper/Visitor.hpp}
-The code will print a message with the found object name when it finds a
-reference to a declaration, see lines 8-9. 
+The \mintinline{c++}{main} function of our tool is presented below:
+\begin{figure}[H]
+  \inputminted[highlightlines={5,23}]{c++}{src/part1/ch3_ast/declvisitor/DeclVisitor.cpp}
+  \caption{The main function for DeclVisitor test tool}
+  \label{lis:main:declvisitor}
+\end{figure}
 
-We can build our program to use the same sequence of commands as for our test
-project, see \fullref{sec:setup_test_project}
+From lines 5 and 23, it's evident that we employ a custom frontend action
+specific to our project:
+\mintinline{c++}{clangbook::declvisitor::FrontendAction}. The code for this
+class is provided below
+\begin{figure}[H]
+\inputminted[highlightlines={9-12}]{c++}{src/part1/ch3_ast/declvisitor/FrontendAction.hpp}
+  \caption{Custom FrontendAction class for DeclVisitor test tool}
+  \label{lis:frontendaction:declvisitor}
+\end{figure}
+
+You'll notice that we have overridden the
+\mintinline{c++}{clang::ASTFrontendAction::CreateASTConsumer} function to
+instantiate our custom \mintinline{c++}{clangbook::declvisitor::Consumer} (as
+highlighted in lines 9-12). The implementation for our tailored AST consumer is as
+follows:
+\begin{figure}[H]
+\inputminted{c++}{src/part1/ch3_ast/declvisitor/Consumer.hpp}
+\caption{Consumer class for DeclVisitor test tool}
+\label{lis:consumer:declvisitor}
+\end{figure}
+
+Here, we can see that we've created a sample visitor and invoked it using the \\
+\mintinline{c++}{clang::ASTConsumer::HandleTranslationUnit} (see
+\cref{lis:consumer:declvisitor}, line 11). However, the most
+intriguing portion is the code for the visitor: 
+\begin{figure}[H]
+  \inputminted[highlightlines={8,14}]{c++}{src/part1/ch3_ast/declvisitor/Visitor.hpp}
+  \caption{Visitor class implementation}
+  \label{lis:declvisitor:visitor}
+\end{figure}
+We will explore the code in more depth later. For now, we observe that it prints
+the function name at line 8 and the parameter name at line 14. 
+
+We can compile our program using the same sequence of commands as we did for our
+test project, as detailed in \fullref{sec:setup_test_project}. 
+% cd src/part1/ch3_ast/declvisitor
+% ./build.sh
+\begin{figure}[H]
 \begin{adjustwidth}{0em}{0em}
 \begin{verbatim}
 export LLVM_HOME=<...>/llvm-project/install
@@ -224,135 +289,312 @@ cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
 ninja
 \end{verbatim}
 \end{adjustwidth}
+\caption{Configure and build commands for DeclVisitor test tool}
+\label{lis:declvisitor:cmakeconfig}
+\end{figure}
 As you may notice we used \myshell{-DCMAKE\_BUILD\_TYPE=Debug} option
-for CMake. That is because we want to investigate the result program under
-debugger. 
+for CMake. That is because we might want to investigate the result program under
+debugger.
 
-The program we used for investigations previously (see \cref{fig:arch_max}) will
-be used for AST traversal investigations as well:
+We will use the same program we referenced in our previous investigations (see \cref{fig:arch_max}) to also study AST traversal:
+\begin{figure}[H]
 \inputminted{c++}{./src/part1/ch2_arch/max.cpp}
-The program has 4 references to declarations: variables 'a' and 'b' at line 2,
-variable 'a' at line 3 and variable 'b' at line 4.
+\caption{Test program max.cpp}
+\label{lis:declvisitor:max}
+\end{figure}
+This program consists of a single function, \mintinline{c++}{max}, which takes
+two parameters: \mintinline{c++}{a} and \mintinline{c++}{b}, and returns the
+maximum of the two. 
 
 We can run our program as follows:
-% ./build/astdumper ../../ch2_arch/max.cpp 
+% ./build/declvisitor ../../ch2_arch/max.cpp 
 \begin{adjustwidth}{0em}{0em}
 \begin{verbatim}
-$ ./astdumper max.cpp 
+$ ./declvisitor max.cpp 
 ...
-Found reference to a declaration: 'a'
-Found reference to a declaration: 'b'
-Found reference to a declaration: 'a'
-Found reference to a declaration: 'b'
+Function: 'max'
+        Parameter: 'a'
+        Parameter: 'b'
 \end{verbatim}
 \end{adjustwidth}
+Let's investigate the Visitor class implementation in detail.
 
-Our test program uses \mintinline{c++}{clang::RecursiveASTVisitor} and our next
-task will be to get a better understanding how it works. We will use \lldb
-debugger as our primary tool for the investigations.
+\subsection{Visitor implementation}
+Let's delve into the Visitor code (see \cref{lis:declvisitor:visitor}).
+Firstly, you'll notice an unusual construct where our class is derived from a
+base class parameterized by our own class: 
+\inputminted[firstline=5,lastline=5]{c++}{src/part1/ch3_ast/declvisitor/Visitor.hpp}
+This construct is known as the Curiously Recurring Template Pattern, or CRTP.
+
+The Visitor class has several callbacks that are triggered when a corresponding
+AST node is encountered. The first callback targets the AST node representing a
+function declaration
+\begin{figure}[H]
+  \inputminted[firstline=7,lastline=12]{c++}{src/part1/ch3_ast/declvisitor/Visitor.hpp}
+  \caption{FunctionDecl callback}
+  \label{lis:declvisitor:visitor:visitfunctiondecl}
+\end{figure}
+As shown in \cref{lis:declvisitor:visitor:visitfunctiondecl}, the function name
+is printed on line 8. Our subsequent step involves printing the names of the
+parameters. To retrieve the function parameters, we can utilize the
+\mintinline{c++}{parameters()} method from the
+\mintinline{c++}{clang::FunctionDecl} class. This method was previously
+mentioned as an ad-hoc approach for AST traversal. Each AST node provides its
+own methods to access child nodes. Since we have an AST node of a specific type
+(i.e., \mintinline{c++}{clang::FunctionDecl*}) as an argument, we can employ
+these methods. 
+
+The function parameter is passed to the \mintinline{c++}{Visit(...)} method of
+the base class \mintinline{c++}{clang::DeclVisitor<>}. This call is subsequently
+transformed into another callback, specifically for the
+\mintinline{c++}{clang::ParmVarDecl} AST node. 
+\begin{figure}[H]
+  \inputminted[firstline=13,lastline=15]{c++}{src/part1/ch3_ast/declvisitor/Visitor.hpp}
+  \caption{ParmVarDecl callback}
+  \label{lis:declvisitor:visitor:visitparmvardecl}
+\end{figure}
+You might be wondering how this conversion is achieved. The answer lies in a
+combination of the CRTP and C/C++ macros. To understand this, we need to dive
+into the \mintinline{c++}{Visit()} method implementation of the
+\mintinline{c++}{clang::DeclVisitor<>} class. This implementation heavily relies
+on C/C++ macros, so to get a glimpse of the actual code, we must expand these
+macros. This can be done using the \mintinline{shell}{-E} compiler option. Let's
+make some modifications to our \myshell{CMakeLists.txt} and introduce a new
+custom target.  
+\begin{figure}[H]
+\inputminted[highlightlines={19},
+  firstline=25,lastline=31]{cmake}{src/part1/ch3_ast/declvisitor/CMakeLists.txt}
+\caption{Custom target to expand macros}
+\label{lis:declvisitor:cmakelists:customtarget}
+\end{figure}
+We can run the target as follows
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+ninja preprocess
+\end{verbatim}
+\end{adjustwidth}
+The resulting file can be located in the build folder specified earlier, named
+\\ \myshell{DeclVisitor.cpp.preprocessed}.
+This is the folder we pointed to when
+executing the cmake command (see \cref{lis:declvisitor:cmakeconfig}). Within
+this file, the generated code for the \mintinline{c++}{Visit()} method appears
+as follows:  
+\begin{minted}{cpp}
+RetTy Visit(typename Ptr<Decl>::type D) {
+  switch (D->getKind()) {
+    ...
+    case Decl::ParmVar: return static_cast<ImplClass*>(this)->VisitParmVarDecl(static_cast<typename Ptr<ParmVarDecl>::type>(D)); 
+    ...
+  }
+}
+\end{minted}
+This code showcases the use of the CRTP
+in Clang. In this context, CRTP is employed to redirect back to our
+\mintinline{c++}{Visitor} class, which is referenced as
+\mintinline{c++}{ImplClass}. CRTP allows the base class to call a method from an
+inherited class. This pattern can serve as an alternative to virtual functions
+and offers several advantages, the most notable being
+performance-related. Specifically, the method call is resolved at compile-time,
+eliminating the need for a vtable lookup associated with virtual method calls. 
+
+The code was generated using C/C++ macros, as demonstrated below. This
+particular code was sourced from the \myshell{clang/include/clang/AST/DeclVisitor.h} header.
+\begin{minted}{c++}
+  #define DISPATCH(NAME, CLASS) \
+  return static_cast<ImplClass*>(this)->Visit##NAME(static_cast<PTR(CLASS)>(D))
+\end{minted}
+The \mintinline{c++}{NAME} is replaced with the node name; in our case, it's
+\mintinline{c++}{ParmVarDecl}. 
+
+The \mintinline{c++}{DeclVisitor} is used to traverse C++ declarations. Clang
+also has \mintinline{c++}{StmtVisitor} and \mintinline{c++}{TypeVisitor} to
+traverse statements and types, respectively. These are built on the same
+principles as we  considered in our example with the declaration
+visitor. However, these visitors come with several 
+issues. They can only be used with specific groups of AST nodes. For instance,
+the \mintinline{c++}{DeclVisitor} can only be used with descendants of the
+\mintinline{c++}{Decl} class. 
+Another limitation is that we are required to implement recursion. For example,
+we set up recursion to traverse the function declaration in lines 
+9-11 (\cref{lis:declvisitor:visitor}). The same recursion was employed to
+traverse declarations within the translation unit (see
+\cref{lis:declvisitor:visitor}, lines 17-19). This brings up another concern:
+it's possible to miss some parts of the recursion. For instance, our code will
+not function correctly if the \mintinline{c++}{max} function declaration is
+specified inside a namespace. 
+%./build/declvisitor  ../../ch2_arch/maxns.cpp
+To address such scenarios, we would need to implement an additional visit method
+specifically for namespace declarations.
+
+These challenges are addressed by the recursive visitor, which we will discuss
+shortly. 
 
 \section{Recursive AST Visitor}
-As it was mentioned earlier we are going to use debugger for the recursive
-visitor investigations. The debugger session can be run as follows
-% lldb ./build/astdumper -- ../../ch2_arch/max.cpp
-\begin{adjustwidth}{0em}{0em}
-\begin{verbatim}
-$ lldb ./astdumper -- max.cpp
-\end{verbatim}
-\end{adjustwidth}
-We will look into the traversal that finds a function declaration. We can setup
-breakpoint into
-\mintinline{c++}{clangbook::astdumper::Visitor::VisitDeclRefExpr} and run the
-debugging session:
-\begin{adjustwidth}{0em}{0em}
-\begin{verbatim}
-(lldb) b clangbook::astdumper::Visitor::VisitDeclRefExpr
-(lldb) r
-...
-* thread #1, name = 'astdumper', stop reason = breakpoint 1.1
-    frame #0: ... ::Visitor::VisitDeclRefExpr(...) at Visitor.hpp:8:15
-   5    class Visitor : public clang::RecursiveASTVisitor<Visitor> {
-   6    public:
-   7      bool VisitDeclRefExpr(const clang::DeclRefExpr *DRE) {
--> 8        llvm::errs() << "Found reference to a declaration: '"
-   9                     << DRE->getFoundDecl()->getName() << "'\n";
-   10       return true;
-   11     }
-(lldb)
-\end{verbatim}
-\end{adjustwidth}
-We will start our investigation with 11th frame:
-\begin{adjustwidth}{0em}{0em}
-\begin{verbatim}
-(lldb) f 11
-frame #11: ... ::HandleTranslationUnit(...) at Consumer.hpp:11:20
-   8      Consumer() : V(std::make_unique<Visitor>()) {}
-   9    
-   10     virtual void HandleTranslationUnit(clang::ASTContext &Context) override {
--> 11       V->TraverseDecl(Context.getTranslationUnitDecl());
-   12     }
-   13   
-   14   private:
-\end{verbatim}
-\end{adjustwidth}
-This is our code that starts the traversal procedure. We can use "up" and "down"
-command to navigate the stack. The next frame will be frame \#10:
-be
-\begin{adjustwidth}{0em}{0em}
-\begin{verbatim}
-(lldb) down
-frame #10: ...::TraverseDecl(...) at DeclNodes.inc:645:1
-   642  #ifndef TRANSLATIONUNIT
-   643  #  define TRANSLATIONUNIT(Type, Base) DECL(Type, Base)
-   644  #endif
--> 645  TRANSLATIONUNIT(TranslationUnit, Decl)
-   646  #undef TRANSLATIONUNIT
-   647  
-   648  LAST_DECL_RANGE(Decl, AccessSpec, TranslationUnit)
-\end{verbatim}
-\end{adjustwidth}
-It reflects the fact that we start with translation unit traversal. Frame \#8
- gives us the code where we do the real traversal
-\begin{adjustwidth}{0em}{0em}
-\begin{verbatim}
-(lldb) f 8
-frame #8: ...::TraverseDeclContextHelper(...) at RecursiveASTVisitor.h:1489:7
-   1486 
-   1487   for (auto *Child : DC->decls()) {
-   1488     if (!canIgnoreChildDeclWhileTraversingDeclContext(Child))
--> 1489       TRY_TO(TraverseDecl(Child));
-   1490   }
-   1491 
-   1492   return true;
-\end{verbatim}
-\end{adjustwidth}
-The \mintinline{c++}{clang::TranslationUnitDecl} is inherited from
-\mintinline{c++}{clang::DeclContext} that is a holder for another
-declarations. The class provides \mintinline{c++}{clang::DeclContext::decls}
-method that can be used for a loop over all declarations stored at the specific
-\mintinline{c++}{clang::DeclContext} instance. Our translation unit keeps
-several declarations and one of them is our function. We can see it if we print
-an AST node for the \mintinline{c++}{Child} variable that was selected
-for execution at our breakpoint
-\footnote{
-It should be an AST node that corresponds to a declaration reference because we
-stopped at the top frame on the method that processes function declarations
-}
-\begin{adjustwidth}{0em}{0em}
-\begin{verbatim}
-(lldb) p Child->dump()
-FunctionDecl ... max.cpp:1:1, line:5:1> line:1:5 max 'int (int, int)'
-|-ParmVarDecl ... used a 'int'
-|-ParmVarDecl ... used b 'int'
-`-CompoundStmt ... <col:23, line:5:1>
-...
-\end{verbatim}
-\end{adjustwidth}
+Recursive AST visitors address the limitations observed with specialized
+visitors. We will create the same program, which searches for and prints
+function declarations along with their parameters, but we'll use a recursive
+visitor this time. 
 
-It's worth mentioning that there is a common pattern for AST recursive
-visitor. It uses ad-hoc methods of AST nodes for the tree traversal. For
-instance it uses loop over declarations stored at translation unit for finding a
-declaration reference.
+The \myshell{CMakeLists.txt} for recursive visitor test tool will be similar to
+used previously. The only project name and source file name was changed
+\begin{figure}[H]
+\inputminted[highlightlines={2,14-17}]{cmake}{src/part1/ch3_ast/recursivevisitor/CMakeLists.txt}
+\caption{CMakeLists.txt file for RecursiveVisitor test tool}
+\label{lis:cmake:recursivevisitor}
+\end{figure}
+
+The \mintinline{c++}{main} function for our tool is similar to the `DeclVisitor`
+one defined in \cref{lis:main:declvisitor}. 
+\begin{figure}[H]
+\inputminted[highlightlines={23}]{c++}{src/part1/ch3_ast/recursivevisitor/RecursiveVisitor.cpp}
+\caption{The main function for the RecursiveVisitor test tool.}
+\label{lis:main:recursivevisitor}
+\end{figure}
+As you can see, we changed only the namespace name for our custom frontend
+action at line 23. 
+
+The code for the frontend action and consumer is the same as in
+\cref{lis:frontendaction:declvisitor} and \cref{lis:consumer:declvisitor}, with
+the only difference being the namespace change from
+\mintinline{c++}{declvisitor} to \mintinline{c++}{recursivevisitor}. The most
+interesting part of the program is the Visitor class implementation. 
+\begin{figure}[H]
+\inputminted{c++}{src/part1/ch3_ast/recursivevisitor/Visitor.hpp}
+\caption{Visitor class implementation}
+  \label{lis:recursivevisitor:visitor}
+\end{figure}
+There are several changes compared to the code for `DeclVisitor` (see
+\cref{lis:declvisitor:visitor}). The first is that recursion isn't
+implemented. We've only implemented the callbacks for nodes of interest to us. A
+reasonable question arises: how is the recursion controlled? The answer lies in
+another change: our callbacks now return a boolean result. The value
+\mintinline{c++}{false} indicates that the recursion should stop, while
+\mintinline{c++}{true} signals the visitor to continue the traversal. 
+
+The program can be compiled using the same sequence of commands as we used
+previously, see \cref{lis:declvisitor:cmakeconfig}.
+
+We can run our program as follows:
+% ./build/recursivevisitor ../../ch2_arch/max.cpp 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ./recursivevisitor max.cpp 
+...
+Function: 'max'
+        Parameter: 'a'
+        Parameter: 'b'
+\end{verbatim}
+\end{adjustwidth}
+As we can see, it produces the same result as we obtained with the DeclVisitor
+implementation. The AST traversal techniques considered so far are not the only
+ways for AST traversal. Most of the tools that we will consider later will use a
+different approach based on AST matchers. 
+
+%% Our test program uses \mintinline{c++}{clang::RecursiveASTVisitor} and our next
+%% task will be to get a better understanding how it works. We will use \lldb
+%% debugger as our primary tool for the investigations.
+
+%% As it was mentioned earlier we are going to use debugger for the recursive
+%% visitor investigations. The debugger session can be run as follows
+%% % lldb ./build/astdumper -- ../../ch2_arch/max.cpp
+%% \begin{adjustwidth}{0em}{0em}
+%% \begin{verbatim}
+%% $ lldb ./astdumper -- max.cpp
+%% \end{verbatim}
+%% \end{adjustwidth}
+%% We will look into the traversal that finds a function declaration. We can setup
+%% breakpoint into
+%% \mintinline{c++}{clangbook::astdumper::Visitor::VisitDeclRefExpr} and run the
+%% debugging session:
+%% \begin{adjustwidth}{0em}{0em}
+%% \begin{verbatim}
+%% (lldb) b clangbook::astdumper::Visitor::VisitDeclRefExpr
+%% (lldb) r
+%% ...
+%% * thread #1, name = 'astdumper', stop reason = breakpoint 1.1
+%%     frame #0: ... ::Visitor::VisitDeclRefExpr(...) at Visitor.hpp:8:15
+%%    5    class Visitor : public clang::RecursiveASTVisitor<Visitor> {
+%%    6    public:
+%%    7      bool VisitDeclRefExpr(const clang::DeclRefExpr *DRE) {
+%% -> 8        llvm::errs() << "Found reference to a declaration: '"
+%%    9                     << DRE->getFoundDecl()->getName() << "'\n";
+%%    10       return true;
+%%    11     }
+%% (lldb)
+%% \end{verbatim}
+%% \end{adjustwidth}
+%% We will start our investigation with 11th frame:
+%% \begin{adjustwidth}{0em}{0em}
+%% \begin{verbatim}
+%% (lldb) f 11
+%% frame #11: ... ::HandleTranslationUnit(...) at Consumer.hpp:11:20
+%%    8      Consumer() : V(std::make_unique<Visitor>()) {}
+%%    9    
+%%    10     virtual void HandleTranslationUnit(clang::ASTContext &Context) override {
+%% -> 11       V->TraverseDecl(Context.getTranslationUnitDecl());
+%%    12     }
+%%    13   
+%%    14   private:
+%% \end{verbatim}
+%% \end{adjustwidth}
+%% This is our code that starts the traversal procedure. We can use "up" and "down"
+%% command to navigate the stack. The next frame will be frame \#10:
+%% be
+%% \begin{adjustwidth}{0em}{0em}
+%% \begin{verbatim}
+%% (lldb) down
+%% frame #10: ...::TraverseDecl(...) at DeclNodes.inc:645:1
+%%    642  #ifndef TRANSLATIONUNIT
+%%    643  #  define TRANSLATIONUNIT(Type, Base) DECL(Type, Base)
+%%    644  #endif
+%% -> 645  TRANSLATIONUNIT(TranslationUnit, Decl)
+%%    646  #undef TRANSLATIONUNIT
+%%    647  
+%%    648  LAST_DECL_RANGE(Decl, AccessSpec, TranslationUnit)
+%% \end{verbatim}
+%% \end{adjustwidth}
+%% It reflects the fact that we start with translation unit traversal. Frame \#8
+%%  gives us the code where we do the real traversal
+%% \begin{adjustwidth}{0em}{0em}
+%% \begin{verbatim}
+%% (lldb) f 8
+%% frame #8: ...::TraverseDeclContextHelper(...) at RecursiveASTVisitor.h:1489:7
+%%    1486 
+%%    1487   for (auto *Child : DC->decls()) {
+%%    1488     if (!canIgnoreChildDeclWhileTraversingDeclContext(Child))
+%% -> 1489       TRY_TO(TraverseDecl(Child));
+%%    1490   }
+%%    1491 
+%%    1492   return true;
+%% \end{verbatim}
+%% \end{adjustwidth}
+%% The \mintinline{c++}{clang::TranslationUnitDecl} is inherited from
+%% \mintinline{c++}{clang::DeclContext} that is a holder for another
+%% declarations. The class provides \mintinline{c++}{clang::DeclContext::decls}
+%% method that can be used for a loop over all declarations stored at the specific
+%% \mintinline{c++}{clang::DeclContext} instance. Our translation unit keeps
+%% several declarations and one of them is our function. We can see it if we print
+%% an AST node for the \mintinline{c++}{Child} variable that was selected
+%% for execution at our breakpoint
+%% \footnote{
+%% It should be an AST node that corresponds to a declaration reference because we
+%% stopped at the top frame on the method that processes function declarations
+%% }
+%% \begin{adjustwidth}{0em}{0em}
+%% \begin{verbatim}
+%% (lldb) p Child->dump()
+%% FunctionDecl ... max.cpp:1:1, line:5:1> line:1:5 max 'int (int, int)'
+%% |-ParmVarDecl ... used a 'int'
+%% |-ParmVarDecl ... used b 'int'
+%% `-CompoundStmt ... <col:23, line:5:1>
+%% ...
+%% \end{verbatim}
+%% \end{adjustwidth}
+
+%% It's worth mentioning that there is a common pattern for AST recursive
+%% visitor. It uses ad-hoc methods of AST nodes for the tree traversal. For
+%% instance it uses loop over declarations stored at translation unit for finding a
+%% declaration reference.
 
 %% First of all, each AST node has ad-hoc methods that allow to select different
 %% children. For example \mintinline{c++}{clang::IfStmt} has a method to select
@@ -365,24 +607,271 @@ declaration reference.
 %% TBD
 
 \section{AST matchers}
-TBD
+AST matchers provide another approach for locating specific AST nodes. They can
+be particularly useful in linters when searching for improper pattern usage or
+in refactoring tools when identifying AST nodes for modification.
+
+We will create a simple program to test AST matchers. The program will identify
+a function definition with the name \mintinline{c++}{max}. 
+
+We will use a slightly modified \myshell{CMakeLists.txt} file from the previous examples.
+\begin{figure}[H]
+  \inputminted[highlightlines={18,21}]{cmake}{src/part1/ch3_ast/matchvisitor/CMakeLists.txt}
+  \caption{CMakeLists.txt for AST matchers test tool}
+  \label{lis:ch3:matchervisitor:cmake}
+\end{figure}
+There are two additional libraries were added: \myshell{LLVMFrontendOpenMP} and
+\myshell{clangASTMatchers} (see lines 18 and 21 in
+\cref{lis:ch3:matchervisitor:cmake}).
+
+The \mintinline{c++}{main} function for our tool looks like
+\begin{figure}[H]
+  \inputminted[highlightlines={5,22-24}]{c++}{src/part1/ch3_ast/matchvisitor/MatchVisitor.cpp}
+  \caption{The main function for AST matchers test tool}
+  \label{lis:ch3:matchervisitor:main}
+\end{figure}
+As you can observe (lines 22-24), we employ the \mintinline{c++}{MatchFinder}
+class and define a custom callback (included via the header in line 5) that
+outlines the specific AST node we intend to match. 
+
+The callback is implemented as follows:
+\begin{figure}[H]
+\inputminted[highlightlines={7-9}]{c++}{src/part1/ch3_ast/matchvisitor/MatchCallback.hpp}
+  \caption{The match callback for AST matchers test tool}
+  \label{lis:ch3:matchervisitor:callback}
+\end{figure}
+The most crucial section of the code is located at lines 7-9. Each matcher is
+identified by an ID, which, in our case, is 'match-id'. The matcher itself is
+defined in lines 8-9: 
+\inputminted[firstline=8,lastline=9]{c++}{src/part1/ch3_ast/matchvisitor/MatchCallback.hpp}
+This matcher seeks a function declaration using \mintinline{c++}{functionDecl()} that has a specific name, as seen in \mintinline{c++}{matchesName()}.
+We utilized a specialized Domain-Specific Language (DSL) to specify the
+matcher. The DSL is implemented using C++ macros. It's worth noting that the
+recursive AST visitor serves as the backbone for AST traversal inside the
+matchers implementation.
+
+The program can be compiled using the same sequence of commands as we used
+previously, see \cref{lis:declvisitor:cmakeconfig}.
+
+We will utilize a slightly modified version of the example shown in
+\cref{fig:arch_max}, with an additional function added.
+\begin{figure}[H]
+  \inputminted{c++}{src/part1/ch3_ast/minmax.cpp}
+  \caption{Test program minmax.cpp for AST matchers}
+  \label{lis:min:max}
+\end{figure}
+
+When we run our test tool on the example, we will obtain the following output:
+%./build/matchvisitor ../minmax.cpp
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+./matchvisitor minmax.cpp
+...
+Found 'max' function at minmax.cpp:1:5
+\end{verbatim}
+\end{adjustwidth}
+As we can see, it has located only one function declaration with the name
+specified for the matcher. 
+
+The AST matchers reference page
+(https://clang.llvm.org/docs/LibASTMatchersReference.html) provides extensive
+information about various matchers and their usage. 
+
+The DSL for matchers is typically employed in custom Clang tools, such as
+clang-tidy (as discussed in \fullref{ch:clangtidy}), but it can also be used as
+a standalone tool. A specialized program called \myshell{clang-query} enables
+the execution of different match queries. 
 
 \section{Explore clang AST with clang-query}
+AST matchers are incredibly useful, and there's a utility that facilitates
+checking various matchers and analyzing the AST of your source code. This
+utility is known as \myshell{clang-query}. You can build and install this
+utility using the following command. 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+ninja install-clang-query
+\end{verbatim}
+\end{adjustwidth}
+You can run the tool as follows
+%./llvm-project-16.x/install/bin/clang-query ./src/part1/ch3_ast/minmax.cpp
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+llvm-project/install/bin/clang-query minmax.cpp
+\end{verbatim}
+\end{adjustwidth}
+We can use \myshell{match} command as follows
 
-TBD
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+clang-query> match functionDecl(decl().bind("match-id"), matchesName("max"))
 
-\section{Errors processing}
-\clang tries to collect as many errors as possible while compiling a program.
-TBD
+Match #1:
+
+minmax.cpp:1:1: note: "match-id" binds here
+int max(int a, int b) {
+^~~~~~~~~~~~~~~~~~~~~~~
+minmax.cpp:1:1: note: "root" binds here
+int max(int a, int b) {
+^~~~~~~~~~~~~~~~~~~~~~~
+1 match.
+clang-query> 
+\end{verbatim}
+\end{adjustwidth}
+
+The default output, referred to as \myshell{diag}, is available. Among several
+potential outputs, the most relevant one for us is \myshell{dump}. When the
+output is set to \myshell{dump}, clang-query will display the located AST
+node. For example, the following demonstrates how to match a function parameter
+named \myshell{a}: 
+
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+clang-query> set output dump
+clang-query> match parmVarDecl(hasName("a"))
+
+Match #1:
+
+Binding for "root":
+ParmVarDecl 0x6775e48 <minmax.cpp:1:9, col:13> col:13 used a 'int'
+
+
+Match #2:
+
+Binding for "root":
+ParmVarDecl 0x6776218 <minmax.cpp:6:9, col:13> col:13 used a 'int'
+
+2 matches.
+clang-query>
+\end{verbatim}
+\end{adjustwidth}
+
+This tool proves useful when you wish to test a particular matcher or
+investigate a portion of the AST tree. We will utilize this tool to explore
+how Clang handles compilation errors. 
+
+\section{Processing AST in the case of errors}
+One of the most interesting aspects of Clang pertains to error processing. Error
+processing encompasses error detection, the display of corresponding error
+messages, and potential error recovery. The latter is particularly intriguing in
+terms of the Clang AST. Error recovery occurs when Clang doesn't halt upon
+encountering a compilation error but continues to compile in order to detect
+additional issues. 
+
+Such behavior is beneficial for various reasons. The most evident one is user
+convenience. When programmers compile a program, they typically prefer to be
+informed about as many errors as possible in a single compilation run. If the
+compiler were to stop at the first error, the programmer would have to correct
+that error, recompile, then address the subsequent error, and recompile again,
+and so forth. This iterative process can be tedious and frustrating, especially
+with larger codebases or intricate errors. 
+
+Another compelling reason centers on IDE integration, which will be discussed in
+more detail in \fullref{ch:clangd}. IDEs offer navigation support coupled with
+an integrated compiler. We will explore \myshell{clangd} as one of such
+tools. Editing code in IDEs often leads to compilation errors. Most errors are
+confined to specific sections of the code, and it might be suboptimal to cease
+navigation in such cases. 
+
+Clang employs various techniques for error recovery. For the syntax stage of
+parsing, it utilizes heuristics; for instance, if a user forgets to insert a
+semicolon, Clang may attempt to add it as part of the recovery process. The
+semantic stage of parsing is more intricate, and Clang implements unique
+techniques to manage recovery during this phase. 
+
+Consider a program (maxerr.cpp) that is syntactically correct but has a semantic
+error. For example, it might use an undeclared variable. In this program, refer
+to line 3 where the undeclared variable \mintinline{c++}{ab} is used 
+\begin{figure}[H]
+  \inputminted{c++}{src/part1/ch3_ast/maxerr.cpp}
+  \caption{The maxerr.cpp test program with a semantic error, undeclared
+    variable} 
+  \label{lis:min:maxerr}
+\end{figure}
+
+We are interested in the AST result produced by Clang, and we will use
+\myshell{clang-query} to examine it, which can be run as follows:
+% ./llvm-project-16.x/install/bin/clang-query ./src/part1/ch3_ast/maxerr.cpp
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+llvm-project/install/bin/clang-query maxerr.cpp
+...
+maxerr.cpp:3:12: error: use of undeclared identifier 'ab'
+    return ab;
+           ^
+\end{verbatim}
+\end{adjustwidth}
+From the output, we can see that clang-query displayed a compilation error
+detected by the compiler. It's worth noting that despite this, an AST was
+produced for the program, and we can examine it. We are particularly interested
+in the return statements and can use the corresponding matcher to highlight the
+relevant parts of the AST.
+
+We will also set up the output to produce the AST and search for return statements that are of interest to us
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+clang-query> set output dump
+clang-query> match returnStmt()
+\end{verbatim}
+\end{adjustwidth}
+
+The resulting output identifies two return statements in our program: the first
+match on line 5 and the second match on line 3
+\begin{figure}[H]
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+Match #1:
+
+Binding for "root":
+ReturnStmt 0x6b63230 <maxerr.cpp:5:3, col:10>
+`-ImplicitCastExpr 0x6b63218 <col:10> 'int' <LValueToRValue>
+  `-DeclRefExpr 0x6b631f8 <col:10> 'int' lvalue ParmVar 0x6b62ec8 'b' 'int'
+
+
+Match #2:
+
+Binding for "root":
+ReturnStmt 0x6b631b0 <maxerr.cpp:3:5, col:12>
+`-RecoveryExpr 0x6b63190 <col:12> '<dependent type>' contains-errors lvalue
+
+2 matches.
+\end{verbatim}
+\end{adjustwidth}
+\caption{ReturnStmt node matches at maxerr.cpp test program}
+\label{lis:ch3:maxerr:returnmatch}
+\end{figure}
+As we can see, the first match corresponds to semantically correct code on line 5
+and contains a reference to the parameter \mintinline{c++}{a}. The second match
+is for line 3, which has a compilation error. Notably, Clang has inserted a
+special type of AST node: \mintinline{c++}{RecoveryExpr}. It's worth noting that
+in certain situations, Clang might produce an incomplete AST. This can cause
+issues with Clang tools, such as lint checks. In instances of compilation
+errors, lint checks might yield unexpected results because Clang couldn't
+recover accurately from the compilation errors. We will revisit the problem when
+exploring the clang-tidy lint check framework in \fullref{ch:clangtidy}. 
+\label{sec:ast:errors}
 
 \section{Summary}
+We explored the Clang AST, a major instrument for creating various Clang
+tools. We learned about the architectural design principles chosen for the
+implementation of Clang AST and investigated different methods for AST
+traversal. We delved into specialized traversal techniques, such as those for
+C/C++ declarations, and also looked into more universal techniques that employ
+recursive visitors and Clang AST matchers. Our exploration concluded with the
+\myshell{clang-query} tool and how it can be used for Clang AST
+exploration. Specifically, we used it to understand how Clang processes
+compilation errors. 
 
-TBD
-
+The next chapter will discuss the basic libraries used in Clang and LLVM
+development. We will explore the LLVM code style and foundational Clang/LLVM
+classes, such as \mintinline{c++}{SourceManager} and
+\mintinline{c++}{SourceLocation}. We will also cover the TableGen library, which
+is used for code generation, and the LIT (LLVM Integration Test) framework. 
 
 \section{Further reading}
 \begin{itemize}
-  \item How to write RecursiveASTVisitor: https://clang.llvm.org/docs/RAVFrontendAction.html
+  \item How to write RecursiveASTVisitor:
+    https://clang.llvm.org/docs/RAVFrontendAction.html
+  \item AST Matcher Reference: https://clang.llvm.org/docs/LibASTMatchersReference.html
 \end{itemize}
 
 

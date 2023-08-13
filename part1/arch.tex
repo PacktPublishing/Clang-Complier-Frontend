@@ -24,7 +24,7 @@ The following topics will be covered in this chapter:
   parser, and sema 
 \end{itemize}
 
-\section{Compilers overview}
+\section{Getting started with compilers}
 \label{sec:compiler_overview}
 Despite the fact that compilers are used to translate programs from one form to
 another, they can also be considered as large software systems that use various
@@ -39,7 +39,7 @@ to any compiler, not just Clang. We will briefly cover all phases of
 compilation, which will help to understand Clang's position in the overall
 compiler architecture.
 
-\subsection{Compiler workflow}
+\subsection{Explore compiler workflow}
 
 The primary function of a compiler is to convert a program written in a specific
 programming language (such as C/C++ or FORTRAN) into a format that can be
@@ -158,12 +158,16 @@ Backend (see \cref{fig:source_code_transformation}).
     the code transformations}  
   \label{fig:source_code_transformation}
 \end{figure}
+Lets look into compiler frontend as the first component at the compiler's
+workflow. 
 
 \subsection{Frontend}
-
-Our primary focus will be on the frontend, so we will examine its
-components. The frontend also transforms the source code into various forms
-before it produces the IR. The first component of the frontend is the \lexer
+The primary goal for frontend is the source code conversion to IR. It's worth
+mentioning that frontend also transforms the source code into various forms
+before it produces the IR.
+Frontend will be our primary focus in the book, so we will examine its
+components. 
+The first component of the frontend is the \lexer
 (see \cref{fig:compiler_frontend}). It converts the source code into a set of
 tokens, which are used to create a special data structure called the abstract
 syntax tree (\myast). The final component, code generator (Codegen), traverses
@@ -212,6 +216,8 @@ follows:
 \caption{Test program for compiler frontend investigations}
 \label{fig:arch_max}
 \end{figure}
+The first component of the frontend is Lexer, lets examine it. 
+
 \subsubsection{Lexer}
 
 The Frontend process starts with the \lexer, which converts the input source
@@ -469,7 +475,7 @@ second one is a shared library for standard C++ library. The clang driver should
 combine the inputs together, pass them via different phases of compilation
 process and finally provide the executable file on the target platform.
 
-\clang uses the same process as shown in \cref{fig:compiler_workflow}. You can
+\clang uses the same typical compiler workflow as shown in \cref{fig:compiler_workflow}. You can
 ask \clang to show the phases using \myshell{-ccc-print-phases} additional
 argument
 % clang src/part1/ch2_arch/hello.cpp -o /tmp/hello -lstdc++ -ccc-print-phases
@@ -1385,6 +1391,7 @@ As can be seen, the AST node for the return statement is created by the Sema
 component. 
 
 The beginning of the return statement parser can be located in frame 4:
+\begin{figure}
 \begin{minted}{shell-session}
 (lldb) f 4
 frame #4: ... clang::Parser::ParseStatementOrDeclarationAfterAttributes( ...
@@ -1396,6 +1403,7 @@ frame #4: ... clang::Parser::ParseStatementOrDeclarationAfterAttributes( ...
    330    case tok::kw_co_return:            // C++ Coroutines: ...
 (lldb) 
 \end{minted}
+\end{figure}
 As we can observe, there is a reference to the C99 standard \citep{standard:c99}
 for the corresponding statement. The standard \citep{standard:c99} provides a
 detailed description of the statement and the process for handling it. 

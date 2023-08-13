@@ -5,6 +5,7 @@ all: clangbook.tex
 	pdflatex -shell-escape clangbook.tex
 	pdftk A=clangbook.pdf cat A15-32 output chapters/ch1.pdf
 	pdftk A=clangbook.pdf cat A33-64 output chapters/ch2.pdf
+	pdftk A=clangbook.pdf cat A65-92 output chapters/ch3.pdf
 
 clean:
 	rm -rf *.aux *.bbl clangbook*.dvi  clangbook*.idv  clangbook*.lg  clangbook*.pyg  clangbook*.xref
