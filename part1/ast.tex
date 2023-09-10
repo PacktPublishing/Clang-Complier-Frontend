@@ -197,6 +197,7 @@ method. \mintinline{c++}{clang::QualType} also provides a method to retrieve the
 canonical type from an alias: \mintinline{c++}{clang::QualType::getCanonicalType()}.
 
 \section{AST traversal}
+\label{sec:ch3:ast_traversal}
 The compiler requires traversal of the AST to generate IR code. Thus, having a
 well-structured data structure for tree traversal is paramount for AST
 design. To put it another way, the design of the AST should prioritize
@@ -320,6 +321,7 @@ Function: 'max'
 Let's investigate the Visitor class implementation in detail.
 
 \subsection{Visitor implementation}
+\label{sec:part1:ch3:visitor_implementation}
 Let's delve into the Visitor code (see \cref{lis:declvisitor:visitor}).
 Firstly, you'll notice an unusual construct where our class is derived from a
 base class parameterized by our own class: 
@@ -430,6 +432,7 @@ These challenges are addressed by the recursive visitor, which we will discuss
 shortly. 
 
 \section{Recursive AST Visitor}
+\label{sec:ch3:recursive_ast_visitor}
 Recursive AST visitors address the limitations observed with specialized
 visitors. We will create the same program, which searches for and prints
 function declarations along with their parameters, but we'll use a recursive

@@ -1,0 +1,47 @@
+%% -*- coding:utf-8 -*-
+\chapter{Support for large projects}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Support for large projects}
+
+\section{Compilation database}
+A compilation database is a JSON file that specifies how each source file in a codebase should be compiled. This JSON file is typically named\mintinline{shell}{compile_commands.json} and resides in the root directory of a project. It provides a machine-readable record of all compiler invocations in the build process and is often used by various tools for more accurate analysis, refactoring, and more. Each entry in this JSON file typically contains the following fields:
+
+\begin{itemize}
+\item directory: The working directory of the compilation.
+\item command: The actual compile command, including compiler options.
+\item file: The path to the source file being compiled.
+\end{itemize}
+Here's a simple example:
+\begin{minted}{json}
+  [
+    {
+        "directory": "/path/to/build",
+        "command": "/usr/bin/clang -c -o file.o file.c",
+        "file": "/path/to/file.c"
+    },
+    {
+        "directory": "/path/to/build",
+        "command": "/usr/bin/clang -c -o another_file.o another_file.c",
+        "file": "/path/to/another_file.c"
+    }
+ ]
+\end{minted}
+The concept of a compilation database is not specific to Clang, but Clang-based
+tools make extensive use of it. For instance, the Clang compiler itself can use
+a compilation database to understand how to compile files in a project. Tools
+like clang-tidy, clang-format, and clangd (for language support in IDEs) can
+also use it to ensure they understand the code as it was built, making their
+analyses and transformations more accurate. 
+
+The \mintinline{shell}{compile_commands.json} file can be generated in various ways. For example,
+the build system CMake has built-in support for generating a compilation
+database. Some tools can also generate this file from Makefiles or other build
+systems. There are even tools like Bear and intercept-build that can generate a
+compilation database by intercepting the actual compile commands as they are
+run. 
+
+So, while the term is commonly associated with Clang and LLVM-based tools, the
+concept itself is more general and could theoretically be used by any tool that
+needs to understand the compilation settings for a set of source files.

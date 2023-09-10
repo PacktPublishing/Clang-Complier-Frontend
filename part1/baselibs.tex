@@ -4,38 +4,1073 @@
 \fancyhf{}
 \rhead{\thepage}
 \lhead{Basic libraries and tools}
-LLVM has been written in C++ language and currently (since July 2022) uses the
-c++17 version of the C++ standard \citep{llvm:cpp17migration}. On the other side,
-it has a lot of internal implementations for fundamental containers with the
-primary goal of performance. Therefore, being familiar with the extensions is
-crucial if you want to work with LLVM and clang. In addition, LLVM also
-introduced additional development tools such as TableGen - DSL (domain-specific
-language) for structural data processing and LIT (LLVM test framework). You can
-find some info about the tools here. 
+LLVM is written in the C++ language and, as of July 2022, it uses the C++17
+version of the C++ standard \citep{llvm:cpp17migration}. On the other hand, LLVM
+contains numerous internal implementations for fundamental containers, primarily
+aimed at optimizing performance. Hence, familiarity with these extensions is
+essential for anyone wishing to work with LLVM and clang. Additionally, LLVM has
+introduced other development tools such as TableGen, a domain-specific language
+(DSL) designed for structural data processing, and LIT, the LLVM test
+framework. More details about these tools are discussed later in this chapter. 
 
-We are planning to use a simple example project to demonstrate the tools. The
-example project will be \clang plugin that can estimate complexity of
-the source code being compiled and print a warning if the number of
-functions/methods exceeds the limit specified as a parameter.  
+We plan to use a simple example project to demonstrate these tools. This project
+will be a Clang plugin that estimates the complexity of the source code being
+compiled. It will also print a warning if the number of functions or methods
+exceeds a limit specified as a parameter. 
 
 \section{LLVM coding style}
-TBD
+LLVM adheres to specific code-style rules \citep{llvm:coding_standards}. The
+primary objective of these rules is to promote proficient C++ practices with a
+special focus on performance. As previously mentioned, LLVM employs C++17 and
+prefers using data structures and algorithms from the STL (Standard Template
+Library). On the other hand, LLVM offers many optimized versions of data
+structures that mirror those in the STL. For example,
+\mintinline{c++}{llvm::SmallVector<>} can be regarded as an optimized version of
+\mintinline{c++}{std::vector<>}, especially for small vector sizes, a common
+trait for data structures used in compilers. 
 
-\section{Basic libs}
-TBD
+Given a choice between an STL object/algorithm and its corresponding LLVM
+version, the LLVM coding standard advises favoring the LLVM version. 
 
-\section{TableGen}
-TBD
+Other rules related to performance concern restrictions. For instance, both RTTI
+(Run-Time Type Information) and C++ exceptions are disallowed. However, there
+are situations where RTTI could prove beneficial; thus, LLVM offers alternatives
+like \mintinline{c++}{llvm::isa<>} and other similar template helper
+functions. More information on this can be found in
+\fullref{sec:rtti:replacement}. Instead of C++ exceptions, LLVM frequently
+employs C-style \mintinline{c++}{assert}s.
 
-\section{LLVM test framework}
+Sometimes, asserts are not sufficiently informative. LLVM recommends adding
+textual messages to them to simplify debugging. Here's a typical example from
+Clang's code: 
+% ./AST/ASTContext.cpp:2670:  assert(RD->isUnion() && "Must be union type");
+\begin{minted}{c++}
+static bool unionHasUniqueObjectRepresentations(const ASTContext &Context,
+                                                const RecordDecl *RD) {
+  assert(RD->isUnion() && "Must be union type");
+  ...
+\end{minted}
+In the code, we check if the parameter is a union and raise an assert with a
+corresponding message if it's not. 
+
+Besides performance considerations, LLVM also introduces some additional
+requirements. One of these requirements concerns comments. Code comments are
+very important. Furthermore, both LLVM and Clang have comprehensive
+documentation generated from the code. They use Doxygen
+(https://www.doxygen.nl/) for this purpose. This tool is the de facto standard
+for commenting in C/C++ programs, and you have most likely encountered it
+before. 
+
+Clang and LLVM are not monolithic pieces of code but are implemented as a set of
+libraries. These libraries can be considered good examples of LLVM code style
+enforcement. Let's look at the libraries in detail. 
+
+\section{LLVM basic libraries}
+We are going to start with RTTI replacement in LLVM code and discuss how it's
+implemented. We will then continue with basic containers and smart pointers. We
+will conclude with some important classes used to represent token locations and
+how diagnostics are realized in Clang. Later (see
+\fullref{sec:ch4:plugin_test_project}), we will use some of these classes in our
+test project. 
+
+\subsection{RTTI replacement and cast operators}
+\label{sec:rtti:replacement}
+As mentioned earlier, LLVM avoids using RTTI due to performance concerns. LLVM
+has introduced several helper functions that replace RTTI counterparts, allowing
+for the casting of an object from one type to another. The fundamental ones are
+as follows:
+\begin{itemize}
+  \item \mintinline{c++}{llvm::isa<>} is akin to Java's
+    \mintinline{java}{instanceof} operator. It returns \mintinline{c++}{true} or
+    \mintinline{c++}{false} depending on whether the reference to the tested
+    object belongs to the tested class or not.
+  \item \mintinline{c++}{llvm::cast<>}: Use this cast operator when you're
+    certain that the object is of the specified derived type. If the cast fails
+    (i.e., the object isn't of the expected type), \mintinline{c++}{llvm::cast}
+    will abort the program. Use it only when you're confident the cast won't
+    fail. 
+  \item \mintinline{c++}{llvm::dyn_cast<>}: This is perhaps the most
+    frequently used casting operator in LLVM. \mintinline{c++}{llvm::dyn_cast}
+    is employed for safe downcasting when you anticipate the cast will usually
+    succeed, but there's some uncertainty. If the object isn't of the specified
+    derived type,\mintinline{c++}{llvm::dyn_cast<>} returns
+    \mintinline{c++}{nullptr}.   
+\end{itemize}
+The cast operators do not accept \mintinline{c++}{nullptr} as input. However,
+there are two special cast operators that can handle null pointers: 
+\begin{itemize}
+\item \mintinline{c++}{llvm::cast_if_present<>}: A variant of
+  \mintinline{c++}{llvm::cast<>} that accepts \mintinline{c++}{nullptr} values. 
+\item \mintinline{c++}{llvm::dyn_cast_if_present<>}: A variant of
+  \mintinline{c++}{llvm::dyn_cast<>} that accepts \mintinline{c++}{nullptr}
+  values. 
+\end{itemize}
+Both operators can handle \mintinline{c++}{nullptr} values. If the input is \mintinline{c++}{nullptr} or if the cast fails, they simply return \mintinline{c++}{nullptr}.
+
+\begin{quote}
+It's worth noting that \mintinline{c++}{llvm::cast_if_present<>} and
+\mintinline{c++}{llvm::dyn_cast_if_present<>} were introduced recently,
+specifically in 2022. They serve as replacements for
+\mintinline{c++}{llvm::cast_or_null<>} and
+\mintinline{c++}{llvm::dyn_cast_or_null<>}, which had been in recent use. The
+older versions are still supported and now redirect calls to the newer cast
+operators. For more information, see the discussion about this change:
+\href{https://discourse.llvm.org/t/psa-swapping-out-or-null-with-if-present/65018}{https://discourse.llvm.org/t/psa-swapping-out-or-null-with-if-present/65018} 
+\end{quote}
+
+The following question might arise: how can the dynamic cast operation be
+performed without RTTI? This can be achieved with certain specific decorations,
+as illustrated in a simple example inspired by \citep{llvm:rtti_setup}. We'll
+begin with a base class \mintinline{c++}{clangbook::Animal} that has two
+descendants: \mintinline{c++}{clangbook::Horse} and
+\mintinline{c++}{clangbook::Sheep}. Each horse can be categorized by its speed
+(in mph), and each sheep by its wool mass. Here's how it can be used: 
+\begin{figure}[H]
+\inputminted[highlightlines={48,51},
+  firstline=46,lastline=56]{c++}{src/part1/ch4_baselibs/baselibs/TestCast.h}
+\caption{LLVM \mintinline{c++}{isa<>} and \mintinline{c++}{dyn_cast<>} usage example}
+\label{lis:ch4:animal:example}
+\end{figure}
+The code should produce the following output
+% ./build/baselibs
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+Animal is a Horse and the horse speed is: 10mph
+\end{verbatim}
+\end{adjustwidth}
+Line 46 in \cref{lis:ch4:animal:example} demonstrates the use of
+\mintinline{c++}{llvm::isa<>}, while line 56 showcases
+\mintinline{c++}{llvm::dyn_cast<>}. In the latter, we cast the base class to
+\mintinline{c++}{clangbook::Horse} and call a method specific to that class.
+
+Let's look into the class implementations, which will provide insights into how
+the RTTI replacement works. We will start with the base class
+\mintinline{c++}{clangbook::Animal}: 
+\begin{figure}[H]
+\inputminted[highlightlines={11},
+  firstline=9,lastline=19]{c++}{src/part1/ch4_baselibs/baselibs/TestCast.h}
+\caption{\mintinline{c++}{clangbook::Animal} class}
+\label{lis:ch4:animal:animal}
+\end{figure}
+The most crucial aspect is line 11 in \cref{lis:ch4:animal:animal}. It specifies
+different "kinds" of animals. One enum value is used for the horse
+(\mintinline{c++}{AK_Horse}) and another for the sheep
+(\mintinline{c++}{AK_Sheep}). Hence, the base class has some knowledge about its
+descendants. 
+
+\begin{figure}[H]
+\inputminted[highlightlines={25,37},
+  firstline=21,lastline=43]{c++}{src/part1/ch4_baselibs/baselibs/TestCast.h}
+\caption{\mintinline{c++}{clangbook::Horse} and \mintinline{c++}{clangbook::Sheep} classes}
+\label{lis:ch4:animal:horse_sheep}
+\end{figure}
+The implementations for the \mintinline{c++}{clangbook::Horse} and
+\mintinline{c++}{clangbook::Sheep} classes can be found in
+\cref{lis:ch4:animal:horse_sheep}. Lines 25 and 37 are particularly important as
+they contain the \mintinline{c++}{classof} static method implementation. This
+method is crucial for the cast operators in LLVM. A typical implementation might
+look like the following (simplified version):
+\begin{figure}[H]
+\begin{minted}{c++}
+template <typename To, typename From>
+bool isa(const From *Val) {
+  return To::classof(Val);
+}
+\end{minted}
+\caption{Simplified implementation for \mintinline{c++}{llvm::isa<>}}
+\label{lis:ch4:isa_simplified}
+\end{figure}
+The same mechanism can be applied to other cast operators.
+
+Our next topic will discuss various types of containers that serve as more
+powerful alternatives to their corresponding STL counterparts. 
+
+\subsection{Containers}
+The LLVM ADT (Abstract Data Type) library offers a set of containers. While some
+of them are unique to LLVM, others can be considered as replacements for
+containers from the standard C++ library (STL). We will explore some of the most
+popular classes provided by the ADT.
+
+\subsubsection{String operations}
+\label{sec:ch4:string_operations}
+The primary class for working with strings in the standard C++ library is
+\mintinline{c++}{std::string}. Although this class was designed to be universal,
+it has some performance-related issues. A significant issue concerns the copy
+operation. Since copying strings is a common operation in compilers, LLVM
+introduced a specialized class, \mintinline{c++}{llvm::StringRef}, that handles
+this operation efficiently without using extra memory. This class is comparable
+to \mintinline{c++}{std::string_view} from C++17 \citep{standard:cpp17} and
+\mintinline{c++}{std::span} from C++20 \citep{standard:cpp20}. 
+
+The \mintinline{c++}{llvm::StringRef} class maintains a reference to data, which
+doesn't need to be null-terminated like traditional C/C++ strings. It
+essentially holds a pointer to a data block and the block's size, making the
+object's effective size 16 bytes. Because \mintinline{c++}{llvm::StringRef}
+retains a reference rather than the actual data, it must be constructed from an
+existing data source. This class can be instantiated from basic string objects
+such as \mintinline{c++}{const char*}, \mintinline{c++}{std::string}, and
+\mintinline{c++}{std::string_view}. The default constructor creates an empty
+object.
+
+% src/part1/ch4_baselibs/baselibs/TestString.h
+\begin{figure}[H]
+\begin{minted}{c++}
+  #include "llvm/ADT/StringRef.h"
+  ...
+  llvm::StringRef StrRef("Hello, LLVM!");
+  // Efficient substring, no allocations
+  llvm::StringRef SubStr = StrRef.substr(0, 5);  
+  
+  llvm::outs() << "Original StringRef: " << StrRef.str() << "\n";
+  llvm::outs() << "Substring: " << SubStr.str() << "\n";
+\end{minted}
+\caption{\mintinline{c++}{llvm::StringRef} usage example}
+\label{lis:ch4:string_ref_usage}
+\end{figure}
+Typical usage example for \mintinline{c++}{llvm::StringRef} is shown in
+\cref{lis:ch4:string_ref_usage}. The output for the code is below:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+Original StringRef: Hello, LLVM!
+Substring: Hello
+\end{verbatim}
+\end{adjustwidth}
+
+Another class used for string manipulation in LLVM is
+\mintinline{c++}{llvm::Twine}, which is particularly useful when concatenating
+several objects into one. A typical usage example for the class is shown in
+\cref{lis:ch4:twine_usage} 
+
+\begin{figure}[H]
+  \begin{minted}{c++}
+    #include "llvm/ADT/Twine.h"
+    ...
+    llvm::StringRef Part1("Hello, ");
+    llvm::StringRef Part2("Twine!");
+    llvm::Twine Twine = Part1 + Part2;  // Efficient concatenation
+
+    // Convert twine to a string (actual allocation happens here)
+    std::string TwineStr = Twine.str();
+    llvm::outs() << "Twine result: " << TwineStr << "\n";
+\end{minted}
+\caption{\mintinline{c++}{llvm::Twine} usage example}
+\label{lis:ch4:twine_usage}
+\end{figure}
+The output for the code is below:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+Twine result: Hello, Twine!
+\end{verbatim}
+\end{adjustwidth}
+
+Another class that is widely used for string manipulations is
+\mintinline{c++}{llvm::SmallString<>}. It represents a string that is
+stack-allocated up to a fixed size, but can also grow beyond this size, at which
+point it heap-allocates memory. This is a blend between the space efficiency of
+stack allocation and the flexibility of heap allocation.
+
+The advantage of \mintinline{c++}{llvm::SmallString<>} is that for many scenarios,
+especially in compiler tasks, strings tend to be small and fit within the
+stack-allocated space. This avoids the overhead of dynamic memory
+allocation. But in situations where a larger string is required,
+llvm::SmallString can still accommodate by transitioning to heap memory. Typical
+usage example is show in \cref{lis:ch4:smallstring_usage}
+\begin{figure}[H]
+  \begin{minted}{c++}
+    #include "llvm/ADT/SmallString.h"
+    ...
+    // Stack allocate space for up to 20 characters.
+    llvm::SmallString<20> SmallStr;
+    
+    // No heap allocation happens here.
+    SmallStr = "Hello, ";
+    SmallStr += "LLVM!";
+
+    llvm::outs() << "SmallString result: " << SmallStr << "\n";
+  \end{minted}
+\caption{\mintinline{c++}{llvm::SmallString<>} usage example}
+\label{lis:ch4:smallstring_usage}
+\end{figure}
+
+Despite the fact that string manipulation is key in compiler tasks like text
+parsing, LLVM has many other helper classes. We'll explore its sequential
+containers next. 
+
+\subsubsection{Sequential containers}
+LLVM recommends some optimized replacements for arrays and vectors from the
+standard library. The most notable are: 
+\begin{itemize}
+  \item \mintinline{c++}{llvm::ArrayRef<>}: A helper class designed for
+    interfaces that accept a sequential list of elements for read-only
+    access. The \mintinline{c++}{llvm::ArrayRef<>} class is akin to
+    \mintinline{c++}{llvm::StringRef<>} in that it does not own the underlying
+    data but merely references it. 
+  \item \mintinline{c++}{llvm::SmallVector<>}: An optimized vector for cases
+    with a small size. It resembles \mintinline{c++}{llvm::SmallString}, as
+    discussed in \fullref{sec:ch4:string_operations}. Notably, the size for the
+    array isn't fixed, allowing the number of stored elements to grow. If the
+    number of elements stays below \mintinline{c++}{N} (the template argument),
+    then there is no need for additional memory allocation. 
+\end{itemize}
+
+Let's examine the \mintinline{c++}{llvm::SmallVector<>} to better understand
+these containers, as shown in \cref{lis:ch4:smallvector}.  
+% src/part1/ch4_baselibs/baselibs/TestVector.h
+\begin{figure}[H]
+  \begin{minted}[highlightlines={5}]{c++}
+    llvm::SmallVector<int, 10> SmallVector;
+    for (int i = 0; i < 10; i++) {
+      SmallVector.push_back(i);
+    }
+    SmallVector.push_back(10);
+  \end{minted}
+\caption{\mintinline{c++}{llvm::SmallVector<>} usage}
+\label{lis:ch4:smallvector}
+\end{figure}
+
+The vector is initialized at line 5 with a chosen size of 10 (indicated by the
+second template argument). The container offers an API similar to
+\mintinline{c++}{std::vector<>}, using the familiar \mintinline{c++}{push_back}
+method to add new elements, as seen in \cref{lis:ch4:smallvector}, lines 3 and
+5. 
+
+The first 10 elements are added to the vector without any additional memory
+allocation (see \cref{lis:ch4:smallvector}, lines 2-4). However, when the
+eleventh element is added at line 5, the array's size surpasses the
+pre-allocated space for 10 elements, triggering additional memory
+allocation. This container design efficiently minimizes memory allocation for
+small objects while maintaining the flexibility to accommodate larger sizes when
+necessary. 
+
+\subsubsection{Map like containers}
+The standard library provides several containers for storing key-value data. The
+most common ones are \mintinline{c++}{std::map<>} for general-purpose maps and
+\mintinline{c++}{std::unordered_map<>} for hash maps. LLVM offers additional
+alternatives to these standard containers: 
+\begin{itemize}
+\item \mintinline{c++}{llvm::StringMap<>}: A map that uses strings as
+  keys. Typically, this is more performance-optimized than the standard
+  associative container \mintinline{c++}{std::unordered_map<std::string, T>}. It
+  is frequently used in situations where string keys are dominant, and
+  performance is critical, as one might expect in a compiler infrastructure like
+  LLVM. Unlike many other data structures in LLVM,
+  \mintinline{c++}{llvm::StringMap<>} does not store a copy of the string
+  key. Instead, it keeps a reference to the string data, so it's crucial to
+  ensure the string data outlives the map to prevent undefined behavior. 
+\item \mintinline{c++}{llvm::DenseMap<>}: This map is designed to be more
+  memory- and time-efficient than \mintinline{c++}{std::unordered_map<>} in most
+  situations, though it comes with some additional constraints (e.g., keys and
+  values having trivial destructors). It's especially beneficial when you have
+  simple key-value types and require high-performance lookups. 
+\item \mintinline{c++}{llvm::SmallDenseMap<>}: This map is akin to
+  \mintinline{c++}{llvm::DenseMap<>} but is optimized for instances where the
+  map size is typically small. It allocates from the stack for small maps and
+  only resorts to heap allocation when the map exceeds a predefined size. 
+\item \mintinline{c++}{llvm::MapVector<>}: This container retains the insertion
+  order, akin to Python's OrderedDict. It is implemented as a blend of
+  \mintinline{c++}{std::vector} and either \mintinline{c++}{llvm::DenseMap} or
+  \mintinline{c++}{llvm::SmallDenseMap}.  
+\end{itemize}
+It's noteworthy that these containers utilize a quadratically-probed hash table
+mechanism. This method is effective for hash collision resolution because the
+cache isn't recomputed during element lookups. This is crucial for
+performance-critical applications, such as compilers. 
+
+\subsection{Smart pointers}
+Different smart pointers can be found in LLVM code. The 
+\mintinline{c++}{std::unique_ptr<>} and \mintinline{c++}{std::shared_ptr<>} 
+are the most popular ones. In addition, LLVM provides some supplementary classes 
+to work with smart pointers. One of the most prominent among them is 
+\mintinline{c++}{llvm::IntrusiveRefCntPtr<>}. This smart pointer is designed to 
+work with objects that support intrusive reference counting. Unlike 
+\mintinline{c++}{std::shared_ptr}, which maintains its own control block to 
+manage the reference count, \mintinline{c++}{IntrusiveRefCntPtr} expects the 
+object to maintain its own reference count. This design can be more 
+memory-efficient. A typical usage example is shown below:
+
+\begin{figure}[H]
+  \begin{minted}{c++}
+  class MyClass : public llvm::RefCountedBase<MyClass> {
+  // ...
+  };
+  
+  llvm::IntrusiveRefCntPtr<MyClass> Ptr = new MyClass();
+  \end{minted}
+  \caption{\mintinline{c++}{llvm::IntrusiveRefCntPtr<>} usage example}
+\label{lis:ch4:IntrusiveRefCntPtr_usage}
+\end{figure}
+
+As we can see, the smart pointer prominently employs the CRTP (Curiously
+Recurring Template Pattern) that was mentioned earlier in 
+\fullref{sec:ch3:ast_traversal}. The CRTP is essential for the 
+\mintinline{c++}{Release} operation when the reference count drops to 0 and the
+object must be deleted. The implementation is as follows:
+
+% llvm/ADT/IntrusiveRefCntPtr.h
+\begin{figure}[H]
+\begin{minted}{c++}
+template <class Derived> class RefCountedBase {
+  // ...
+  void Release() const {
+    assert(RefCount > 0 && "Reference count is already zero.");
+    if (--RefCount == 0)
+      delete static_cast<const Derived *>(this);
+  }
+}
+\end{minted}
+\caption{CRTP usage in \mintinline{c++}{llvm::RefCountedBase<>}. The code was 
+sourced from the \texttt{llvm/ADT/IntrusiveRefCntPtr.h} header.}
+\label{lis:ch4:ref_counted_base}
+\end{figure}
+
+Since \mintinline{c++}{MyClass} in \cref{lis:ch4:IntrusiveRefCntPtr_usage} is
+derived from \mintinline{c++}{RefCountedBase}, we can perform a cast on it in
+line 6 of \cref{lis:ch4:ref_counted_base}. This cast is feasible since the type
+to cast is known, given that it is provided as a template parameter. 
+
+We just finished with LLVM basic libraries and there is a time to move to Clang
+basic libraries. Clang is a compiler frontend and the most important operation
+are related to diagnostics. The diagnostic requires precise information about
+position location in the source code. Lets explore basic classes that Clang
+provides for these operations. 
+
+\section{Clang basic libraries}
+
+We have just finished discussing LLVM's basic libraries, and now it's time to
+move on to Clang's basic libraries. Clang is a compiler frontend, and its most
+crucial operations are related to diagnostics. Diagnostics require precise
+information about position locations in the source code. Let's explore the basic
+classes that Clang provides for these operations.
+
+\subsection{SourceManager and SourceLocation}
+Clang, as a compiler, operates with text files (programs), and locating a
+specific place in the program is one of the most frequently requested
+operations. Let's look at a typical Clang error report. Consider a program from
+the previous chapter, as seen in \cref{lis:min:maxerr}. Clang produces the
+following error message for the program: 
+% ./llvm-project-16.x/install/bin/clang -fsyntax-only ./src/part1/ch3_ast/maxerr.cpp
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+llvm-project/install/bin/clang -fsyntax-only maxerr.cpp
+maxerr.cpp:3:12: error: use of undeclared identifier 'ab'
+    return ab;
+           ^
+1 error generated.
+\end{verbatim}
+\end{adjustwidth}
+As you can see, the following information is required to display the message:
+\begin{itemize}
+\item File name: in our case, it's \myshell{maxerr.cpp}.
+\item Line in the file: in our case, it's \myshell{3}.
+\item Column in the file: in our case, it's \myshell{12}.
+\end{itemize}
+The data structure that stores this information should be as compact as possible
+because the compiler uses it frequently. Clang stores the required information
+in the \mintinline{c++}{clang::SourceLocation} object. 
+
+This object is used often, so it should be small in size and quick to copy. We
+can check the size of the object using lldb. For instance, if we run Clang under
+the debugger, we can determine the size as follows: 
+% lldb build/bin/clang
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+(lldb) p sizeof(clang::SourceLocation)
+(unsigned long) 4
+(lldb)
+\end{verbatim}
+\end{adjustwidth}
+That is, the information is encoded using a single \mintinline{c++}{unsigned
+  long} number. How is this possible? The number merely serves as an identifier
+for a position in the text file. An additional class is required to correctly
+extract and represent this information, which is
+\mintinline{c++}{clang::SourceManager}. The SourceManager object contains all
+the details about a specific location. In Clang, managing source locations can
+be challenging due to the presence of macros, includes, and other preprocessing
+directives. Consequently, there are several ways to interpret a given source
+location. The primary ones are: 
+\begin{itemize}
+  \item \textbf{Spelling Location}: Refers to the location where something was
+    actually spelled out in the source. If you have a source location pointing
+    inside a macro body, the spelling location will give you the location in the
+    source code where the contents of the macro are defined.
+    \item \textbf{Expansion Location}: Refers to where a macro gets expanded. If
+      you have a source location pointing inside a macro body, the expansion
+      location will give you the location in the source code where the macro was
+      used (expanded). 
+\end{itemize}
+
+Let's look at a specific example.
+\begin{figure}[H]
+\inputminted{c++}{src/part1/ch4_baselibs/recursivevisitor/functions.hpp}
+\caption{Example program to test different types of source locations}
+\label{lis:ch4:example:functions}
+\end{figure}
+In \cref{lis:ch4:example:functions}, we define two functions:
+\mintinline{c++}{int foo()} at line 2 and \mintinline{c++}{void bar()} at line
+3. For the first function, both the spelling and expansion locations point to
+line 2. However, for the second function, the spelling location is at line 1,
+while the expansion location is at line 3. 
+
+Let's examine this with a test clang tool. We will use the test project from
+\fullref{sec:ch3:recursive_ast_visitor} and will replace some parts of the code
+here. First of all, we have to pass \mintinline{c++}{clang::ASTContext} to our
+\mintinline{c++}{Visitor} implementation. This is required because
+\mintinline{c++}{clang::ASTContext} provides access to
+\mintinline{c++}{clang::SourceManager}. We will replace line 11 in
+\cref{lis:frontendaction:declvisitor} and pass ASTContext as follows: 
+\inputminted[highlightlines={11}, firstline=10,lastline=11]{c++}{src/part1/ch4_baselibs/recursivevisitor/FrontendAction.hpp}
+
+The \mintinline{c++}{Consumer} class (see \cref{lis:consumer:declvisitor}) will
+accept the argument and use it as a parameter for \mintinline{c++}{Visitor}: 
+\inputminted[firstline=8,lastline=9]{c++}{src/part1/ch4_baselibs/recursivevisitor/Consumer.hpp}
+
+The main changes are for the \mintinline{c++}{Visitor} class, which is mostly rewritten as follows:
+\begin{figure}[H]
+\inputminted[firstline=5,lastline=27]{c++}{src/part1/ch4_baselibs/recursivevisitor/Visitor.hpp}
+\caption{Visitor class implementation}
+\label{lis:ch4:recursivevisitor:visitor}
+\end{figure}
+
+If we compile and run the code, we will get the following output:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+Spelling : foo at functions.hpp:2
+Expansion : foo at functions.hpp:2
+Spelling : bar at functions.hpp:1
+Expansion : bar at functions.hpp:3
+\end{verbatim}
+\end{adjustwidth}
+
+The \mintinline{c++}{clang::SourceLocation} and
+\mintinline{c++}{clang::SourceManager} are very powerful classes. In combination
+with other classes such as \mintinline{c++}{clang::SourceRange} (a pair of two
+source locations that specify the beginning and end of a source range), they
+provide a great foundation for diagnostics used in Clang. 
+
+\subsection{Diagnostics support}
+Clang's diagnostics subsystem is responsible for generating and reporting warnings, errors, and other messages. The main classes involved are:
+
+\begin{itemize}
+  \item \mintinline{c++}{DiagnosticsEngine}: Manages diagnostic IDs and options.
+  \item \mintinline{c++}{DiagnosticConsumer}: Abstract base class for diagnostic consumers.
+  \item \mintinline{c++}{DiagnosticIDs}: Handles the mapping between diagnostic flags and internal IDs.
+  \item \mintinline{c++}{DiagnosticInfo}: Represents a single diagnostic.
+\end{itemize}
+
+Here is a simple example to illustrate how you might emit a warning in Clang:
+\begin{figure}[H]
+\inputminted[firstline=5,lastline=27]{c++}{src/part1/ch4_baselibs/diag/Diags.cpp}
+\caption{Clang diagnostics example}
+\label{lis:ch4:diag_example}
+\end{figure}
+The code will produce the following output
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+warning: This is a custom warning.
+\end{verbatim}
+\end{adjustwidth}
+
+In this example, we first set up the \mintinline{c++}{DiagnosticsEngine} with a
+\mintinline{c++}{TextDiagnosticPrinter} as its
+\mintinline{c++}{DiagnosticConsumer}. We then use the \mintinline{c++}{Report}
+method of the \mintinline{c++}{DiagnosticsEngine} to emit a custom warning. We
+will add a more realistic example later when we create our test project for the
+clang plugin in \fullref{sec:ch4:plugin_test_project}. 
+
+\section{LLVM supporting tools}
+The LLVM project has its own tooling support. The most important LLVM tools are
+TableGen and LIT (LLVM Integrated Tester). We will look into them with examples
+from Clang code. These examples should help us understand the purpose of the
+tooling and how they can be used. 
+
+\subsection{TableGen}
+TableGen is a domain-specific language (DSL) and associated tool used in the LLVM
+project for the purpose of describing and generating tables, particularly those
+that describe a target architecture. This is highly useful for compiler
+infrastructure, where one frequently needs to describe things like instruction
+sets, registers, and various other target-specific attributes in a structured
+manner.
+
+TableGen is employed in various parts of the Clang compiler. It's primarily used
+where there's a need to generate large amounts of similar code. For instance, it
+can be used for supporting cast operations that necessitate extensive enum
+declarations in basic classes, or in the diagnostic subsystem where code
+generation is required to handle numerous similar diagnostic messages. We will
+examine how TableGen functions within the diagnostics system as an example. 
+
+We will begin with the \texttt{Diagnostic.td} file, which describes Clang's
+diagnostics. This file can be found at
+\texttt{clang/include/clang/Basic/Diagnostic.td}. Let's examine how diagnostic
+severity is defined: 
+
+\begin{figure}[H]
+\begin{minted}{c++}
+// Define the diagnostic severities.
+class Severity<string N> {
+string Name = N;
+}
+def SEV_Ignored : Severity<"Ignored">;
+def SEV_Remark : Severity<"Remark">;
+def SEV_Warning : Severity<"Warning">;
+def SEV_Error : Severity<"Error">;
+def SEV_Fatal : Severity<"Fatal">;
+\end{minted}
+\caption{Clang diagnostics severity definition in Diagnostic.td}
+\label{lis:ch4:diagnostic_td}
+\end{figure}
+
+In \cref{lis:ch4:diagnostic_td}, we define a class for severities (lines
+2-4). Each severity is associated with a string that describes it. Lines 5-9
+contain definitions for the different severities; for instance, the
+\texttt{Warning} severity is defined on line 7.
+
+The severity is later used to define the \mintinline{c++}{Diagnostic} class, 
+with the \mintinline{c++}{Warning} diagnostic being defined as a descendant of
+this class:
+\begin{minted}{c++}
+// All diagnostics emitted by the compiler are an indirect subclass of this.
+class Diagnostic<string summary, DiagClass DC, Severity defaultmapping> {
+  ...
+}
+...
+class Warning<string str>   : Diagnostic<str, CLASS_WARNING, SEV_Warning>;
+\end{minted}
+
+Using the \mintinline{c++}{Warning} class definition, different
+instances of the class can be defined. For example, below is an instance 
+that defines an unused parameter warning located in \texttt{DiagnosticSemaKinds.td}:
+\begin{minted}{c++}  
+def warn_unused_result : Warning<
+  "ignoring return value of function declared with %0 attribute">,
+  InGroup<UnusedResult>;
+\end{minted}
+
+The tool \myshell{clang-tblgen} will generate the corresponding
+\texttt{DiagnosticSemaKinds.inc} file: 
+\begin{minted}{c++}
+DIAG(warn_unused_result, CLASS_WARNING, (unsigned)diag::Severity::Warning, "ignoring return value of function declared with %0 attribute", 933, SFINAE_Suppress, false, false, true, false, 35)
+\end{minted}
+
+This file retains all the necessary information about the diagnostic. This
+information can be retrieved from the Clang source code using different
+definitions of the \mintinline{c++}{DIAG} macro. 
+
+For instance, the code below leverages the TableGen-generated code to extract 
+diagnostic descriptions, as found in \texttt{clang/lib/Basic/DiagnosticIDs.cpp}:
+\begin{minted}{c++}
+  const StaticDiagInfoDescriptionStringTable StaticDiagInfoDescriptions = {
+#define DIAG(ENUM, CLASS, DEFAULT_SEVERITY, DESC, GROUP, SFINAE, NOWERROR,     \
+             SHOWINSYSHEADER, SHOWINSYSMACRO, DEFERRABLE, CATEGORY)            \
+  DESC,
+// clang-format off
+...
+#include "clang/Basic/DiagnosticSemaKinds.inc"
+...
+// clang-format on
+#undef DIAG
+};
+\end{minted}
+The code will expand to
+\begin{minted}{c++}
+  const StaticDiagInfoDescriptionStringTable StaticDiagInfoDescriptions = {
+    ...
+    "ignoring return value of function declared with %0 attribute",
+    ...
+  };
+\end{minted}
+
+The provided example demonstrates how TableGen can be used to generate code in
+Clang and how it can simplify Clang development. The diagnostic subsystem is not
+the only area where TableGen is utilized; it is also widely used in other parts
+of Clang. For instance, the macros used in various types of AST visitors also
+rely on the code generated by TableGen, see
+\fullref{sec:part1:ch3:visitor_implementation}. 
+% see ./llvm-project-16.x/clang/include/clang/Basic/DeclNodes.td
+
+\subsection{LLVM test framework}
 \label{sec:LLVMTest}
-TBD
+LLVM uses several testing frameworks for different types of testing. The
+primary ones are LIT (LLVM Integrated Tester) and Google Test (GTest). Both LIT
+and GTest play significant roles in Clang's testing infrastructure:  
+\begin{itemize}
+\item LIT is primarily used for testing the behavior of the Clang toolchain as a
+  whole, with a focus on its code compilation capabilities and the diagnostics it
+  produces.  
+\item GTest is utilized for unit tests, targeting specific components of the
+  codebase, primarily utility libraries and internal data structures.
+\end{itemize}
+These tests are crucial for maintaining the quality and stability of the Clang
+project.
+
+\begin{quote}
+We will not delve into GTest, as this testing framework is commonly used outside
+LLVM and isn't part of LLVM itself. For more information about GTest, please
+visit its official page:
+\href{https://github.com/google/googletest}{https://github.com/google/googletest}
+\end{quote}
+
+Our focus will be on the LLVM Integrated Tester, commonly referred to as
+LIT. LIT is LLVM's own test framework and is heavily used for testing the
+various tools and libraries in LLVM, including the Clang compiler. LIT is
+designed to be lightweight and is tailored for the needs of compiler
+testing. It's commonly used for running tests that are essentially shell
+scripts, often with checks for specific patterns in the output. A typical LIT
+test may consist of a source code file along with a set of "RUN" commands that
+specify how to compile, link, or otherwise process the file, and what output to
+expect.
+
+The RUN commands often use FileCheck, another utility in the LLVM project, to
+check the output against expected patterns. In Clang, LIT tests are often used
+for testing frontend features like parsing, semantic analysis, code generation,
+diagnostics, etc. These tests typically look like source code files with
+embedded comments to indicate how to run the test and what to expect.
+
+Consider the following example from
+\texttt{clang/test/Sema/attr-unknown.c}
+\begin{figure}[H]
+\begin{minted}{c++}
+// RUN: %clang_cc1 -fsyntax-only -verify -Wattributes %s
+
+int x __attribute__((foobar)); // expected-warning {{unknown attribute 'foobar' ignored}}
+void z(void) __attribute__((bogusattr)); // expected-warning {{unknown attribute 'bogusattr' ignored}}
+\end{minted}
+\caption{LIT test for clang warnings about unknown attributes}
+\label{lis:ch4:lit_test_attr_unknown}
+\end{figure}
+The example is a typical C source file that can be processed by Clang. LIT's 
+behavior is controlled by comments within the source text. The first comment (on 
+line 1) specifies how the test should be executed. As indicated, \myshell{clang} 
+should be started with some additional arguments: \myshell{-fsyntax-only} and 
+\myshell{-verify}. There are also substitutions that begin with the '\%' symbol. 
+The most important of these is '\%s', which is replaced by the source file's
+name.  
+LIT will also examine comments beginning with \myshell{expected-warning} and 
+ensure that the warnings produced by Clang's output match the expected values.
+
+The test can be run as follows
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ./build/bin/llvm-lit ./clang/test/Sema/attr-unknown.c
+...
+-- Testing: 1 tests, 1 workers --
+PASS: Clang :: Sema/attr-unknown.c (1 of 1)
+
+Testing Time: 0.06s
+  Passed: 1
+\end{verbatim}
+\end{adjustwidth}
+We run \myshell{llvm-lit} from the build folder because the tool is not included
+in the installation procedure. We can obtain more details about LIT setup and
+its invocation once we create our test clang plugin project and configure LIT
+tests for it. 
+
+\section{Clang plugin project}
+\label{sec:ch4:plugin_test_project}
+The goal of the test project is to create a clang-plugin that will estimate
+class complexity. Specifically, a class is deemed complex if the number of its
+methods exceeds a certain threshold. We will leverage all the knowledge we have
+acquired thus far for this project. This will include the use of a recursive
+visitor and Clang diagnostics. Additionally, we will create a LIT test for our
+project. Developing the plugin will necessitate a unique build configuration for
+LLVM, which will be our initial step. 
+
+\subsection{Environment setup}
+The plugin will be created as a shared object, and our LLVM
+installation should be built with support for shared libraries (see
+\fullref{sec:config_with_cmake}):
+\begin{minted}[breaklines=true,linenos=false]{text}
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../install -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_USE_SPLIT_DWARF=ON -DBUILD_SHARED_LIBS=ON ../llvm
+\end{minted}
+As can be seen, only the clang project is enabled.
+
+The next step involves building and installing clang. This can be achieved with
+the following command: 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$ ninja install
+\end{verbatim}
+\end{adjustwidth}
+
+As soon as we are done with the clang build and installation, we can proceed
+with the \myshell{CMakeLists.txt} file for our project. 
+
+\subsection{CMake build configuration for plugin}
+We will use \cref{lis:cmake:recursivevisitor} as the foundation for our
+plugin build configuration. We will change the project name to
+\myshell{classchecker}, and \myshell{ClassComplexityChecker.cpp} will serve as
+our primary source file. The main portion of the file is displayed in
+\cref{lis:ch4:CMakeLists:Plugin}. As can be observed, we will construct a
+shared library (lines 18-20) rather than an executable, as in our previous test
+projects. Another modification is in line 12, where we set up a config parameter
+for the LLVM build folder. This parameter is necessary to locate the LIT
+executable, which is not included in the standard  installation process, as
+mentioned earlier in \fullref{sec:LLVMTest}. Some additional modifications need
+to be made to support LIT test invocations, but we will discuss the details
+later in \fullref{sec:part1:ch4:test_project:lit} (see
+\cref{lis:ch4:CMakeLists:PluginLit}).  
+
+\begin{figure}[H]
+  \inputminted[highlightlines={12,18-20}, firstline=8, lastline=28]{cmake}{src/part1/ch4_baselibs/classcomplexity/CMakeLists.txt}
+  \caption{CMakeLists.txt file for class complexity plugin}
+  \label{lis:ch4:CMakeLists:Plugin}
+\end{figure}
+
+After completing the build configuration, we can start writing the primary code
+for the plugin. The first component we'll create is a recursive visitor class
+named \mintinline{c++}{ClassVisitor}. 
+
+\subsection{Recursive visitor class}
+Our visitor class is located in the file \myshell{ClassVisitor.hpp} (see
+\cref{lis:ch4:ClassComplexityChecker:Visitor}). This is a recursive visitor that
+handles \mintinline{c++}{clang::CXXRecordDecl}, which are the AST nodes for C++
+class declarations. 
+
+We calculate the number of methods in lines 13-16 and emit diagnostics in lines
+19-25 if the threshold is exceeded. 
+\begin{figure}[H]
+  \inputminted{c++}{src/part1/ch4_baselibs/classcomplexity/ClassVisitor.hpp}
+  \caption{Source code for ClassVisitor.hpp}
+  \label{lis:ch4:ClassComplexityChecker:Visitor}
+\end{figure}
+It's worth noting the diagnostic calls. The diagnostic message is constructed in
+lines 20-22. Our diagnostic message accepts two parameters: the class name and
+the number of methods for the class. These parameters are encoded with the
+placeholders '\%1' and '\%2' in line 22. The actual values for these parameters
+are passed in line 25, where the diagnostic message is constructed using the
+\mintinline{c++}{DiagBuild} object. This object is an instance of the
+\mintinline{c++}{clang::DiagnosticBuilder} class, which implements the Resource
+Acquisition Is Initialization (RAII) pattern. It emits the actual diagnostics
+upon its destruction. 
+
+\begin{quote}
+  In C++, the RAII principle is a common idiom used to manage resource lifetimes
+  by tying them to the lifetime of an object. When an object goes out of scope,
+  its destructor is automatically called, and this provides an opportunity to
+  release the resource that the object holds. 
+\end{quote}
+
+The \mintinline{c++}{ClassVisitor} is created within an AST consumer class,
+which will be our next topic. 
+
+\subsection{Plugin AST consumer class}
+The AST consumer class is implemented in \myshell{ClassConsumer.hpp} and
+represents the standard AST consumer, as seen in our AST visitor test projects
+(refer to \cref{lis:consumer:declvisitor}). The code is presented in
+\cref{lis:ch4:ClassComplexityChecker:Action}. 
+\begin{figure}[H]
+  \inputminted{c++}{src/part1/ch4_baselibs/classcomplexity/ClassConsumer.hpp}
+  \caption{Source code for ClassConsumer.hpp}
+  \label{lis:ch4:ClassComplexityChecker:Action}
+\end{figure}
+The consumer must be created from a special AST action class, which we will
+discuss next. 
+
+\subsection{Plugin AST action class}
+The code for the AST action is shown in
+\cref{lis:ch4:ClassComplexityChecker:Action}. Several important parts can
+be observed: 
+\begin{itemize}
+  \item Line 7: We inherit our \mintinline{c++}{ClassAction} from
+    \mintinline{c++}{clang::PluginASTAction}. 
+  \item Lines 10-13: We instantiate a \mintinline{c++}{ClassConsumer} and
+    utilize the \mintinline{c++}{MethodCountThreshold}, which is derived from an
+    optional plugin argument. 
+  \item Lines 15-25: We process the optional \myshell{threshold} argument for
+    our plugin. 
+\end{itemize} 
+\begin{figure}[H]
+  \inputminted{c++}{src/part1/ch4_baselibs/classcomplexity/ClassAction.hpp}
+  \caption{Source code for ClassAction.hpp}
+  \label{lis:ch4:ClassComplexityChecker:Action}
+\end{figure}
+We are almost done and ready to initialize our plugin.
+
+\subsection{Plugin code}
+\begin{figure}[H]
+  \inputminted[highlightlines={16}]{c++}{src/part1/ch4_baselibs/classcomplexity/ClassChecker.cpp}
+  \caption{Source code for ClassChecker.cpp}
+  \label{lis:ch4:ClassComplexityChecker:Plugin}
+\end{figure}
+Our plugin registration is carried out in the \myshell{ClassChecker.cpp} file,
+shown in \cref{lis:ch4:ClassComplexityChecker:Plugin}. As we can observe, the
+majority of the initialization is hidden by helper classes, and we only need to
+pass our implementation to \mintinline{c++}{lang::FrontendPluginRegistry::Add}.
+
+Now we are ready to build and test our clang plugin.
+
+\subsection{Build and run plugin code}
+We need to specify a path to the installation folder for our llvm project. The
+rest of the procedure is the standard one that we have previously used. 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+export LLVM_HOME=<...>/llvm-project/install
+mkdir build
+cd build
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
+ninja classchecker
+\end{verbatim}
+\end{adjustwidth}
+The build artifacts will be located in the \myshell{build} folder. We can then
+run our plugin on a test file as follows: 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$LLVM_HOME/bin/clang -fplugin=./build/libclasschecker.so -fsyntax-only <filepath>
+\end{verbatim}
+\end{adjustwidth}
+where \myshell{<filepath>} is the file we want to compile. For example, if we
+use a test file named \myshell{test.cpp} that defines a class with 3 methods
+(see \cref{lis:ch4:ClassComplexityChecker:SimpeTest3}), we will not receive any
+warnings. 
+\begin{figure}[H]
+  \inputminted{c++}{src/part1/ch4_baselibs/classcomplexity/test.cpp}
+  \caption{Test for the clang plugin}
+  \label{lis:ch4:ClassComplexityChecker:SimpeTest3}
+\end{figure}
+However, if we specify a smaller threshold, we will receive a warning for the file:
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+$LLVM_HOME/bin/clang -fplugin=./build/libclasschecker.so -fsyntax-only \
+-fplugin-arg-classchecker-threshold=2 test.cpp
+test.cpp:1:7: warning: class Simple is too complex: method count = 3
+class Simple {
+      ^
+1 warning generated.
+\end{verbatim}
+\end{adjustwidth}
+It's now time to create a LIT test for our plugin.
+
+\subsection{LIT tests for clang plugin}
+\label{sec:part1:ch4:test_project:lit}
+We'll begin with a description of the project organization. We'll adopt the
+common pattern used in the clang source code and place our tests in the
+\myshell{test} folder. This folder will contain the following files: 
+\begin{itemize}
+\item \myshell{lit.site.cfg.py.in}: This is the main configuration file, a CMake
+  config file. It replaces patterns marked as '@...@' with corresponding values
+  defined during the CMake configuration. Additionally, this file loads
+  \myshell{lit.cfg.py}. 
+\item \myshell{lit.cfg.py}: This serves as the primary configuration file for
+  LIT tests. 
+\item \myshell{simple\_test.cpp}: This is our LIT test file.
+\end{itemize}
+The basic workflow is as follows: CMake takes \myshell{lit.site.cfg.py.in} as a
+template and generates the corresponding \myshell{lit.site.cfg.py} in the
+\myshell{build/test} folder. This file is then utilized by LIT tests as a seed
+to execute the tests.
+
+\subsubsection{LIT config files}
+There are two configuration files for LIT tests. The first one is shown in
+\cref{lis:ch4:ClassComplexityChecker:lit.site.cfg.py.in}. 
+\begin{figure}[H]
+  \inputminted{python}{src/part1/ch4_baselibs/classcomplexity/test/lit.site.cfg.py.in}
+  \caption{lit.site.cfg.py.in file}
+  \label{lis:ch4:ClassComplexityChecker:lit.site.cfg.py.in}
+\end{figure}
+This file is a CMake template that will be converted into a Python script. The
+most crucial part is shown in lines 6-7, where the main LIT config is loaded. It
+is sourced from the main source tree and is not copied to the \myshell{build}
+folder. 
+
+The subsequent configuration is displayed in
+\cref{lis:ch4:ClassComplexityChecker:lit.cfg.py}. It is a Python script
+containing the primary configuration for LIT tests. 
+\begin{figure}[H]
+  \inputminted{python}{src/part1/ch4_baselibs/classcomplexity/test/lit.cfg.py}
+  \caption{lit.cfg.py file}
+  \label{lis:ch4:ClassComplexityChecker:lit.cfg.py}
+\end{figure}
+Lines 4-7 define the fundamental configuration; for example, line 6 determines
+which files should be utilized for tests. All files with the '.cpp' extension in
+the \myshell{test} folder will be employed as LIT tests. 
+
+Lines 9-11 detail the substitutions that will be employed in the LIT
+tests. These include the path to the clang binary (line 9), the path to the
+shared library with the plugin (line 10), and the path to the
+\myshell{FileCheck} utility (line 11).
+
+We have defined only one basic LIT test, \myshell{simple\_test.cpp}, as shown in
+\cref{lis:ch4:ClassComplexityChecker:simpletest.cpp}. 
+\begin{figure}[H]
+  \inputminted{c++}{src/part1/ch4_baselibs/classcomplexity/test/simple_test.cpp}
+  \caption{simple\_test.cpp file}
+  \label{lis:ch4:ClassComplexityChecker:simpletest.cpp}
+\end{figure}
+The use of substitutions can be observed in line 1, where paths to the clang
+binary, the plugin shared library, and the \myshell{FileCheck} utility are
+referenced. Special patterns recognized by the utility are used in line 9. 
+
+The final piece of the puzzle is the CMake configuration. This will set up the
+required variables for substitutions in \myshell{lit.site.cfg.py.in} and also
+define a custom target to run the LIT tests. 
+\subsubsection{CMake configuration for LIT tests}
+% $ ../../../../llvm-project-16.x/install/bin/clang -fplugin=./build/libclasschecker.so -fsyntax-only simple_test.cpp
+The \myshell{CMakeLists.txt} file requires some adjustments to support LIT
+tests. The necessary changes are displayed in
+\cref{lis:ch4:CMakeLists:PluginLit}. 
+\begin{figure}[H]
+  \inputminted[firstline=31, lastline=52]{cmake}{src/part1/ch4_baselibs/classcomplexity/CMakeLists.txt}
+  \caption{LIT tests configuration at CMakeLists.txt}
+  \label{lis:ch4:CMakeLists:PluginLit}
+\end{figure}
+In lines 31 and 32, we search for the necessary utilities \myshell{llvm-lit} and
+\myshell{FileCheck}. It's worth noting that they rely on the
+\mintinline{cmake}{${LLVM_BUILD}} environment variable, which we also verify in
+line 12 of the config (see \cref{lis:ch4:CMakeLists:Plugin}). The steps in lines
+41-43 are essential for generating \myshell{lit.site.cfg.py} from the provided
+template file \myshell{lit.site.cfg.py.in}. Lastly, we establish a custom target
+to execute the LIT tests in lines 46-49.
+
+Now we are ready to start the LIT tests.
+
+\subsubsection{Run LIT tests}
+To initiate the lit tests, we must set an environment variable that points to
+the build folder, compile the project, and then execute the custom target
+\mintinline{cmake}{check-classchecker}. Here's how this can be done: 
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+export LLVM_BUILD=<...>/llvm-project/build
+export LLVM_HOME=<...>/llvm-project/install
+rm -rf build
+mkdir build
+cd build
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
+ninja classchecker
+ninja check-classchecker
+\end{verbatim}
+\end{adjustwidth}
+Upon executing these commands, you may observe the following output:
+
+\begin{adjustwidth}{0em}{0em}
+\begin{verbatim}
+...
+[2/2] Linking CXX shared module libclasschecker.so
+[0/1] Running lit tests for classchecker clang plugin
+-- Testing: 1 tests, 1 workers --
+PASS: classchecker :: simple_test.cpp (1 of 1)
+
+Testing Time: 0.12s
+Passed: 1
+\end{verbatim}
+\end{adjustwidth}
+With this, we conclude our first comprehensive project, which encompasses a
+practical clang plugin that can be tailored via supplemental plugin
+arguments. Additionally, it includes the respective tests that can be executed
+to verify its functionality. 
 
 \section{Summary}
-TBD
+In this chapter, we became familiar with the basic classes from the LLVM ADT
+library. We gained knowledge of clang diagnostics and the test frameworks used
+in LLVM for various types of testing. Using this knowledge, we created a simple
+clang plugin that detects complex classes and issues a warning about their
+complexity. 
 
 \section{Further reading}
 \begin{itemize}
-\item LLVM Coding Standards: https://llvm.org/docs/CodingStandards.html \citep{llvm:coding_standards}
+\item LLVM Coding Standards\citep{llvm:coding_standards}: \href{https://llvm.org/docs/CodingStandards.html}{https://llvm.org/docs/CodingStandards.html}
+\item LLVM Programmer’s Manual\citep{llvm:programmer_manual}: \href{https://llvm.org/docs/ProgrammersManual.html}{https://llvm.org/docs/ProgrammersManual.html}
+\item “Clang” CFE Internals Manual\citep{llvm:clang_cfe_internals_manual}:
+  \href{https://clang.llvm.org/docs/InternalsManual.html}{https://clang.llvm.org/docs/InternalsManual.html}
+\item How to set up LLVM-style RTTI for your class hierarchy \citep{llvm:rtti_setup}: \\
+  \href{https://llvm.org/docs/HowToSetUpLLVMStyleRTTI.html}{https://llvm.org/docs/HowToSetUpLLVMStyleRTTI.html}
 \end{itemize}
 
